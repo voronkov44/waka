@@ -100,56 +100,59 @@ func (s *Service) Update(ctx context.Context, id uint64, req UpdateModelRequest)
 		return Model{}, err
 	}
 
-	if req.Name != nil {
-		name := strings.TrimSpace(*req.Name)
+	if req.Name.Set {
+		if req.Name.Null {
+			return Model{}, ErrInvalidArgument
+		}
+		name := strings.TrimSpace(req.Name.Value)
 		if name == "" {
 			return Model{}, ErrInvalidArgument
 		}
 		rec.Name = name
 	}
 
-	// description (**string)
-	if req.Description != nil {
-		if *req.Description == nil {
+	if req.Description.Set {
+		if req.Description.Null {
 			rec.Description = nil
 		} else {
-			v := **req.Description
+			v := req.Description.Value
 			rec.Description = &v
 		}
 	}
 
-	// photo_url (**string)
-	if req.PhotoURL != nil {
-		if *req.PhotoURL == nil {
+	if req.PhotoURL.Set {
+		if req.PhotoURL.Null {
 			rec.PhotoURL = nil
 		} else {
-			v := **req.PhotoURL
+			v := req.PhotoURL.Value
 			rec.PhotoURL = &v
 		}
 	}
 
-	if req.PuffsMax != nil {
-		if *req.PuffsMax <= 0 {
+	if req.PuffsMax.Set {
+		if req.PuffsMax.Null || req.PuffsMax.Value <= 0 {
 			return Model{}, ErrInvalidArgument
 		}
-		rec.PuffsMax = *req.PuffsMax
+		rec.PuffsMax = req.PuffsMax.Value
 	}
 
-	// flavors: пока patch заменяет список целиком
-	if req.Flavors != nil {
-		flvJSON, err := modelsutil.MarshalFlavors(*req.Flavors)
+	if req.Flavors.Set {
+		nextFlavors := req.Flavors.Value
+		if req.Flavors.Null {
+			nextFlavors = []string{}
+		}
+		flvJSON, err := modelsutil.MarshalFlavors(nextFlavors)
 		if err != nil {
 			return Model{}, err
 		}
 		rec.Flavors = flvJSON
 	}
 
-	// price (**int64)
-	if req.PriceCents != nil {
-		if *req.PriceCents == nil {
+	if req.PriceCents.Set {
+		if req.PriceCents.Null {
 			rec.PriceCents = nil
 		} else {
-			v := **req.PriceCents
+			v := req.PriceCents.Value
 			if v < 0 {
 				return Model{}, ErrInvalidArgument
 			}
@@ -243,12 +246,12 @@ func (s *Service) RemoveFlavor(ctx context.Context, id uint64, value string) (Mo
 }
 
 func isEmptyPatch(req UpdateModelRequest) bool {
-	return req.Name == nil &&
-		req.Description == nil &&
-		req.PhotoURL == nil &&
-		req.PuffsMax == nil &&
-		req.Flavors == nil &&
-		req.PriceCents == nil
+	return !req.Name.Set &&
+		!req.Description.Set &&
+		!req.PhotoURL.Set &&
+		!req.PuffsMax.Set &&
+		!req.Flavors.Set &&
+		!req.PriceCents.Set
 }
 
 func (s *Service) toAPI(rec ModelRecord) (Model, error) {

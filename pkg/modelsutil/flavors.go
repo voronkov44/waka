@@ -47,7 +47,7 @@ func AddFlavorUnique(flavors []string, value string) ([]string, bool, error) {
 		return flavors, false, ErrEmptyFlavor
 	}
 	for _, f := range flavors {
-		if strings.EqualFold(f, val) {
+		if strings.EqualFold(NormalizeFlavor(f), val) {
 			return flavors, false, nil // уже есть, идемпотентно
 		}
 	}
@@ -62,7 +62,7 @@ func RemoveFlavor(flavors []string, value string) ([]string, bool, error) {
 	out := make([]string, 0, len(flavors))
 	removed := false
 	for _, f := range flavors {
-		if strings.EqualFold(f, val) {
+		if strings.EqualFold(NormalizeFlavor(f), val) {
 			removed = true
 			continue
 		}

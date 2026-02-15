@@ -2,6 +2,7 @@ package models
 
 import (
 	"gorm.io/datatypes"
+	"rest_waka/pkg/patch"
 	"time"
 )
 
@@ -27,12 +28,12 @@ type CreateModelRequest struct {
 }
 
 type UpdateModelRequest struct {
-	Name        *string   `json:"name"`
-	Description **string  `json:"description"`
-	PhotoURL    **string  `json:"photo_url"`
-	PuffsMax    *int      `json:"puffs_max"`
-	Flavors     *[]string `json:"flavors"`
-	PriceCents  **int64   `json:"price_cents"`
+	Name        patch.Field[string]   `json:"name"`
+	Description patch.Field[string]   `json:"description"`
+	PhotoURL    patch.Field[string]   `json:"photo_url"`
+	PuffsMax    patch.Field[int]      `json:"puffs_max"`
+	Flavors     patch.Field[[]string] `json:"flavors"`
+	PriceCents  patch.Field[int64]    `json:"price_cents"`
 }
 
 type ListModelsResponse struct {

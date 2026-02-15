@@ -23,10 +23,10 @@ ps:
 	$(COMPOSE) ps
 
 migrate-docker:
-	$(COMPOSE) run --rm api /migrate -config /config.yaml
+	$(COMPOSE) run --rm --entrypoint /migrate api -config /config.yaml
 
 test:
-	@#$(MAKE) -C services test
+	go test ./...
 
 test-tasks:
 	@#$(MAKE) -C services test SERVICE=tasks
