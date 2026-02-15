@@ -1,0 +1,4 @@
+log_level: DEBUG
+api_server:
+  address: ":8080"
+  timeout: 5s
