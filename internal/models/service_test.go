@@ -585,7 +585,7 @@ func TestServiceRemoveFlavor(t *testing.T) {
 type fakeRepo struct {
 	nextID    uint64
 	now       time.Time
-	items     map[uint64]models.ModelRecord
+	items     map[uint64]models.WakaModel
 	saveCalls int
 }
 
@@ -593,11 +593,11 @@ func newFakeRepo() *fakeRepo {
 	return &fakeRepo{
 		nextID: 1,
 		now:    time.Unix(1_700_000_000, 0).UTC(),
-		items:  map[uint64]models.ModelRecord{},
+		items:  map[uint64]models.WakaModel{},
 	}
 }
 
-func (f *fakeRepo) Create(_ context.Context, rec *models.ModelRecord) error {
+func (f *fakeRepo) Create(_ context.Context, rec *models.WakaModel) error {
 	if rec.ID == 0 {
 		rec.ID = f.nextID
 		f.nextID++
@@ -612,15 +612,15 @@ func (f *fakeRepo) Create(_ context.Context, rec *models.ModelRecord) error {
 	return nil
 }
 
-func (f *fakeRepo) Get(_ context.Context, id uint64) (models.ModelRecord, error) {
+func (f *fakeRepo) Get(_ context.Context, id uint64) (models.WakaModel, error) {
 	rec, ok := f.items[id]
 	if !ok {
-		return models.ModelRecord{}, models.ErrNotFound
+		return models.WakaModel{}, models.ErrNotFound
 	}
 	return cloneModelRecord(rec), nil
 }
 
-func (f *fakeRepo) List(_ context.Context, limit, offset int) ([]models.ModelRecord, error) {
+func (f *fakeRepo) List(_ context.Context, limit, offset int) ([]models.WakaModel, error) {
 	ids := make([]uint64, 0, len(f.items))
 	for id := range f.items {
 		ids = append(ids, id)
@@ -636,14 +636,14 @@ func (f *fakeRepo) List(_ context.Context, limit, offset int) ([]models.ModelRec
 		end = len(ids)
 	}
 
-	out := make([]models.ModelRecord, 0, end-start)
+	out := make([]models.WakaModel, 0, end-start)
 	for _, id := range ids[start:end] {
 		out = append(out, cloneModelRecord(f.items[id]))
 	}
 	return out, nil
 }
 
-func (f *fakeRepo) Save(_ context.Context, rec *models.ModelRecord) error {
+func (f *fakeRepo) Save(_ context.Context, rec *models.WakaModel) error {
 	if _, ok := f.items[rec.ID]; !ok {
 		return models.ErrNotFound
 	}
@@ -661,18 +661,18 @@ func (f *fakeRepo) Delete(_ context.Context, id uint64) error {
 	return nil
 }
 
-func (f *fakeRepo) seedModel(name string, puffs int, flavors []string) models.ModelRecord {
+func (f *fakeRepo) seedModel(name string, puffs int, flavors []string) models.WakaModel {
 	id := f.nextID
 	f.nextID++
 	return f.seedModelWithID(id, name, puffs, flavors)
 }
 
-func (f *fakeRepo) seedModelWithID(id uint64, name string, puffs int, flavors []string) models.ModelRecord {
+func (f *fakeRepo) seedModelWithID(id uint64, name string, puffs int, flavors []string) models.WakaModel {
 	raw, err := modelsutil.MarshalFlavors(flavors)
 	if err != nil {
 		panic(err)
 	}
-	rec := models.ModelRecord{
+	rec := models.WakaModel{
 		ID:        id,
 		Name:      name,
 		PuffsMax:  puffs,
@@ -687,7 +687,7 @@ func (f *fakeRepo) seedModelWithID(id uint64, name string, puffs int, flavors []
 	return cloneModelRecord(rec)
 }
 
-func cloneModelRecord(rec models.ModelRecord) models.ModelRecord {
+func cloneModelRecord(rec models.WakaModel) models.WakaModel {
 	out := rec
 	out.Flavors = append(datatypes.JSON(nil), rec.Flavors...)
 	return out

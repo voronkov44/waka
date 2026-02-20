@@ -7,10 +7,10 @@ import (
 )
 
 type RepositoryGorm interface {
-	Create(ctx context.Context, rec *ModelRecord) error
-	Get(ctx context.Context, id uint64) (ModelRecord, error)
-	List(ctx context.Context, limit, offset int) ([]ModelRecord, error)
-	Save(ctx context.Context, rec *ModelRecord) error
+	Create(ctx context.Context, rec *WakaModel) error
+	Get(ctx context.Context, id uint64) (WakaModel, error)
+	List(ctx context.Context, limit, offset int) ([]WakaModel, error)
+	Save(ctx context.Context, rec *WakaModel) error
 	Delete(ctx context.Context, id uint64) error
 }
 
@@ -24,22 +24,22 @@ func NewGormRepository(db *gorm.DB) *GormRepository {
 	}
 }
 
-func (r *GormRepository) Create(ctx context.Context, rec *ModelRecord) error {
+func (r *GormRepository) Create(ctx context.Context, rec *WakaModel) error {
 	return r.db.WithContext(ctx).Create(rec).Error
 }
 
-func (r *GormRepository) Get(ctx context.Context, id uint64) (ModelRecord, error) {
-	var rec ModelRecord
+func (r *GormRepository) Get(ctx context.Context, id uint64) (WakaModel, error) {
+	var rec WakaModel
 	res := r.db.WithContext(ctx).First(&rec, id)
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-		return ModelRecord{}, ErrNotFound
+		return WakaModel{}, ErrNotFound
 	}
 	return rec, res.Error
 }
 
-func (r *GormRepository) List(ctx context.Context, limit, offset int) ([]ModelRecord, error) {
-	var list []ModelRecord
-	q := r.db.WithContext(ctx).Model(&ModelRecord{}).Order("id DESC")
+func (r *GormRepository) List(ctx context.Context, limit, offset int) ([]WakaModel, error) {
+	var list []WakaModel
+	q := r.db.WithContext(ctx).Model(&WakaModel{}).Order("id DESC")
 
 	if limit > 0 {
 		q = q.Limit(limit)
@@ -54,12 +54,12 @@ func (r *GormRepository) List(ctx context.Context, limit, offset int) ([]ModelRe
 	return list, nil
 }
 
-func (r *GormRepository) Save(ctx context.Context, rec *ModelRecord) error {
+func (r *GormRepository) Save(ctx context.Context, rec *WakaModel) error {
 	return r.db.WithContext(ctx).Save(rec).Error
 }
 
 func (r *GormRepository) Delete(ctx context.Context, id uint64) error {
-	res := r.db.WithContext(ctx).Delete(&ModelRecord{}, id)
+	res := r.db.WithContext(ctx).Delete(&WakaModel{}, id)
 	if res.Error != nil {
 		return res.Error
 	}

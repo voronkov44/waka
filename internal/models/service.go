@@ -32,7 +32,7 @@ func (s *Service) Create(ctx context.Context, req CreateModelRequest) (Model, er
 		return Model{}, err
 	}
 
-	rec := ModelRecord{
+	rec := WakaModel{
 		Name:        name,
 		Description: req.Description,
 		PhotoURL:    req.PhotoURL,
@@ -254,7 +254,7 @@ func isEmptyPatch(req UpdateModelRequest) bool {
 		!req.PriceCents.Set
 }
 
-func (s *Service) toAPI(rec ModelRecord) (Model, error) {
+func (s *Service) toAPI(rec WakaModel) (Model, error) {
 	flv, err := modelsutil.UnmarshalFlavors(rec.Flavors)
 	if err != nil {
 		return Model{}, err
