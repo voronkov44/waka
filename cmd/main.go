@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"rest_waka/config"
 	"rest_waka/internal/models"
+	"rest_waka/pkg/middleware"
 	"time"
 )
 
@@ -46,13 +47,19 @@ func main() {
 	repo := models.NewGormRepository(gormDB)
 	svc := models.NewService(repo)
 
-	mux := http.NewServeMux()
-	models.NewModelsHandler(mux, models.HandlerDeps{Service: svc})
+	router := http.NewServeMux()
+	models.NewModelsHandler(router, models.HandlerDeps{Service: svc})
+
+	// Middlewares
+	stack := middleware.Chain(
+		middleware.CORS,
+		middleware.Logging,
+	)
 
 	server := http.Server{
 		Addr:              cfg.HTTP.Address,
 		ReadHeaderTimeout: cfg.HTTP.Timeout,
-		Handler:           mux,
+		Handler:           stack(router),
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
