@@ -7,6 +7,25 @@ import (
 	"strings"
 )
 
+const (
+	StatusActive  = "active"
+	StatusHidden  = "hidden"
+	StatusArchive = "archive"
+)
+
+func normalizeStatus(v string) (string, error) {
+	s := strings.ToLower(strings.TrimSpace(v))
+	if s == "" {
+		return StatusHidden, nil
+	}
+	switch s {
+	case StatusActive, StatusHidden, StatusArchive:
+		return s, nil
+	default:
+		return "", ErrInvalidArgument
+	}
+}
+
 type Service struct {
 	repo RepositoryGorm
 }
@@ -27,6 +46,11 @@ func (s *Service) Create(ctx context.Context, req CreateModelRequest) (Model, er
 		req.Flavors = []string{}
 	}
 
+	status, err := normalizeStatus(req.Status)
+	if err != nil {
+		return Model{}, err
+	}
+
 	flvJson, err := modelsutil.MarshalFlavors(req.Flavors)
 	if err != nil {
 		return Model{}, err
@@ -34,6 +58,7 @@ func (s *Service) Create(ctx context.Context, req CreateModelRequest) (Model, er
 
 	rec := WakaModel{
 		Name:        name,
+		Status:      status,
 		Description: req.Description,
 		PhotoURL:    req.PhotoURL,
 		PuffsMax:    req.PuffsMax,
@@ -109,6 +134,17 @@ func (s *Service) Update(ctx context.Context, id uint64, req UpdateModelRequest)
 			return Model{}, ErrInvalidArgument
 		}
 		rec.Name = name
+	}
+
+	if req.Status.Set {
+		if req.Status.Null {
+			return Model{}, ErrInvalidArgument
+		}
+		st, err := normalizeStatus(req.Status.Value)
+		if err != nil {
+			return Model{}, err
+		}
+		rec.Status = st
 	}
 
 	if req.Description.Set {
@@ -247,6 +283,7 @@ func (s *Service) RemoveFlavor(ctx context.Context, id uint64, value string) (Mo
 
 func isEmptyPatch(req UpdateModelRequest) bool {
 	return !req.Name.Set &&
+		!req.Status.Set &&
 		!req.Description.Set &&
 		!req.PhotoURL.Set &&
 		!req.PuffsMax.Set &&
@@ -263,6 +300,7 @@ func (s *Service) toAPI(rec WakaModel) (Model, error) {
 	return Model{
 		ID:          rec.ID,
 		Name:        rec.Name,
+		Status:      rec.Status,
 		Description: rec.Description,
 		PhotoURL:    rec.PhotoURL,
 		PuffsMax:    rec.PuffsMax,

@@ -9,6 +9,7 @@ import (
 type Model struct {
 	ID          uint64   `json:"id"`
 	Name        string   `json:"name"`
+	Status      string   `json:"status"`
 	Description *string  `json:"description,omitempty"`
 	PhotoURL    *string  `json:"photo_url,omitempty"`
 	PuffsMax    int      `json:"puffs_max"`
@@ -20,6 +21,7 @@ type Model struct {
 
 type CreateModelRequest struct {
 	Name        string   `json:"name"`
+	Status      string   `json:"status,omitempty"`
 	Description *string  `json:"description"`
 	PhotoURL    *string  `json:"photo_url"`
 	PuffsMax    int      `json:"puffs_max"`
@@ -29,6 +31,7 @@ type CreateModelRequest struct {
 
 type UpdateModelRequest struct {
 	Name        patch.Field[string]   `json:"name"`
+	Status      patch.Field[string]   `json:"status"`
 	Description patch.Field[string]   `json:"description"`
 	PhotoURL    patch.Field[string]   `json:"photo_url"`
 	PuffsMax    patch.Field[int]      `json:"puffs_max"`
@@ -49,6 +52,7 @@ type FlavorRequest struct {
 type WakaModel struct {
 	ID          uint64         `gorm:"primaryKey;autoIncrement"`
 	Name        string         `gorm:"not null"`
+	Status      string         `gorm:"not null;default:hidden;index"`
 	Description *string        `gorm:""`
 	PhotoURL    *string        `gorm:""`
 	PuffsMax    int            `gorm:"not null"`

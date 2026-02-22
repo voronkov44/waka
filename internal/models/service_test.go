@@ -23,6 +23,7 @@ func TestServiceCreate(t *testing.T) {
 		req         models.CreateModelRequest
 		wantErr     error
 		wantName    string
+		wantStatus  string
 		wantFlavors []string
 	}{
 		{
@@ -32,12 +33,33 @@ func TestServiceCreate(t *testing.T) {
 				PuffsMax: 600,
 			},
 			wantName:    "Waka X",
+			wantStatus:  models.StatusActive,
+			wantFlavors: []string{},
+		},
+		{
+			name: "success normalizes status",
+			req: models.CreateModelRequest{
+				Name:     "Waka X",
+				Status:   "  HIDDEN  ",
+				PuffsMax: 600,
+			},
+			wantName:    "Waka X",
+			wantStatus:  models.StatusHidden,
 			wantFlavors: []string{},
 		},
 		{
 			name: "rejects empty name",
 			req: models.CreateModelRequest{
 				Name:     "   ",
+				PuffsMax: 600,
+			},
+			wantErr: models.ErrInvalidArgument,
+		},
+		{
+			name: "rejects invalid status",
+			req: models.CreateModelRequest{
+				Name:     "Waka",
+				Status:   "draft",
 				PuffsMax: 600,
 			},
 			wantErr: models.ErrInvalidArgument,
@@ -79,6 +101,9 @@ func TestServiceCreate(t *testing.T) {
 			if got.Name != tc.wantName {
 				t.Fatalf("Create() name = %q, want %q", got.Name, tc.wantName)
 			}
+			if got.Status != tc.wantStatus {
+				t.Fatalf("Create() status = %q, want %q", got.Status, tc.wantStatus)
+			}
 			if !reflect.DeepEqual(got.Flavors, tc.wantFlavors) {
 				t.Fatalf("Create() flavors = %#v, want %#v", got.Flavors, tc.wantFlavors)
 			}
@@ -90,7 +115,7 @@ func TestServiceGet(t *testing.T) {
 	t.Parallel()
 
 	repo := newFakeRepo()
-	rec := repo.seedModel("Waka", 600, []string{"mint"})
+	rec := repo.seedModelWithStatus("Waka", 600, []string{"mint"}, models.StatusHidden)
 	svc := models.NewService(repo)
 
 	tests := []struct {
@@ -126,8 +151,8 @@ func TestServiceGet(t *testing.T) {
 			if tc.wantErr != nil {
 				return
 			}
-			if got.ID != rec.ID || got.Name != rec.Name {
-				t.Fatalf("Get() got = %#v, want id=%d name=%q", got, rec.ID, rec.Name)
+			if got.ID != rec.ID || got.Name != rec.Name || got.Status != rec.Status {
+				t.Fatalf("Get() got = %#v, want id=%d name=%q status=%q", got, rec.ID, rec.Name, rec.Status)
 			}
 		})
 	}
@@ -137,9 +162,9 @@ func TestServiceList(t *testing.T) {
 	t.Parallel()
 
 	repo := newFakeRepo()
-	first := repo.seedModel("First", 500, []string{"a"})
-	second := repo.seedModel("Second", 600, []string{"b"})
-	third := repo.seedModel("Third", 700, []string{"c"})
+	first := repo.seedModelWithStatus("First", 500, []string{"a"}, models.StatusActive)
+	second := repo.seedModelWithStatus("Second", 600, []string{"b"}, models.StatusHidden)
+	third := repo.seedModelWithStatus("Third", 700, []string{"c"}, models.StatusArchive)
 
 	svc := models.NewService(repo)
 
@@ -150,6 +175,7 @@ func TestServiceList(t *testing.T) {
 		wantLimit  int
 		wantOffset int
 		wantIDs    []uint64
+		wantStatus []string
 	}{
 		{
 			name:       "defaults invalid limit and offset",
@@ -158,6 +184,7 @@ func TestServiceList(t *testing.T) {
 			wantLimit:  50,
 			wantOffset: 0,
 			wantIDs:    []uint64{third.ID, second.ID, first.ID},
+			wantStatus: []string{third.Status, second.Status, first.Status},
 		},
 		{
 			name:       "applies limit and offset",
@@ -166,6 +193,7 @@ func TestServiceList(t *testing.T) {
 			wantLimit:  1,
 			wantOffset: 1,
 			wantIDs:    []uint64{second.ID},
+			wantStatus: []string{second.Status},
 		},
 	}
 
@@ -183,11 +211,16 @@ func TestServiceList(t *testing.T) {
 			}
 
 			ids := make([]uint64, 0, len(got.Items))
+			statuses := make([]string, 0, len(got.Items))
 			for _, item := range got.Items {
 				ids = append(ids, item.ID)
+				statuses = append(statuses, item.Status)
 			}
 			if !reflect.DeepEqual(ids, tc.wantIDs) {
 				t.Fatalf("List() ids = %#v, want %#v", ids, tc.wantIDs)
+			}
+			if !reflect.DeepEqual(statuses, tc.wantStatus) {
+				t.Fatalf("List() statuses = %#v, want %#v", statuses, tc.wantStatus)
 			}
 		})
 	}
@@ -231,6 +264,29 @@ func TestServiceUpdate(t *testing.T) {
 					t.Fatalf("Update() name = %q, want %q", m.Name, "New Name")
 				}
 			},
+		},
+		{
+			name: "status gets normalized",
+			id:   1,
+			req:  models.UpdateModelRequest{Status: patchVal("  HIDDEN  ")},
+			assertion: func(t *testing.T, m models.Model, _ *fakeRepo) {
+				t.Helper()
+				if m.Status != models.StatusHidden {
+					t.Fatalf("Update() status = %q, want %q", m.Status, models.StatusHidden)
+				}
+			},
+		},
+		{
+			name:    "invalid status rejected",
+			id:      1,
+			req:     models.UpdateModelRequest{Status: patchVal("draft")},
+			wantErr: models.ErrInvalidArgument,
+		},
+		{
+			name:    "status null rejected",
+			id:      1,
+			req:     models.UpdateModelRequest{Status: patchNull[string]()},
+			wantErr: models.ErrInvalidArgument,
 		},
 		{
 			name:    "invalid empty name",
@@ -336,7 +392,7 @@ func TestServiceUpdate(t *testing.T) {
 			t.Parallel()
 
 			repo := newFakeRepo()
-			repo.seedModelWithID(1, "Old Name", 600, []string{"mint"})
+			repo.seedModelWithIDStatus(1, "Old Name", 600, []string{"mint"}, models.StatusActive)
 			old := repo.items[1]
 			old.Description = ptr("old description")
 			old.PhotoURL = ptr("https://old.local/photo.jpg")
@@ -664,10 +720,20 @@ func (f *fakeRepo) Delete(_ context.Context, id uint64) error {
 func (f *fakeRepo) seedModel(name string, puffs int, flavors []string) models.WakaModel {
 	id := f.nextID
 	f.nextID++
-	return f.seedModelWithID(id, name, puffs, flavors)
+	return f.seedModelWithIDStatus(id, name, puffs, flavors, models.StatusActive)
+}
+
+func (f *fakeRepo) seedModelWithStatus(name string, puffs int, flavors []string, status string) models.WakaModel {
+	id := f.nextID
+	f.nextID++
+	return f.seedModelWithIDStatus(id, name, puffs, flavors, status)
 }
 
 func (f *fakeRepo) seedModelWithID(id uint64, name string, puffs int, flavors []string) models.WakaModel {
+	return f.seedModelWithIDStatus(id, name, puffs, flavors, models.StatusActive)
+}
+
+func (f *fakeRepo) seedModelWithIDStatus(id uint64, name string, puffs int, flavors []string, status string) models.WakaModel {
 	raw, err := modelsutil.MarshalFlavors(flavors)
 	if err != nil {
 		panic(err)
@@ -675,6 +741,7 @@ func (f *fakeRepo) seedModelWithID(id uint64, name string, puffs int, flavors []
 	rec := models.WakaModel{
 		ID:        id,
 		Name:      name,
+		Status:    status,
 		PuffsMax:  puffs,
 		Flavors:   raw,
 		CreatedAt: f.now,
