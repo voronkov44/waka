@@ -33,6 +33,17 @@ func TestServiceCreate(t *testing.T) {
 				PuffsMax: 600,
 			},
 			wantName:    "Waka X",
+			wantStatus:  models.StatusHidden,
+			wantFlavors: []string{},
+		},
+		{
+			name: "success accepts explicit active status",
+			req: models.CreateModelRequest{
+				Name:     "Waka X",
+				Status:   "active",
+				PuffsMax: 600,
+			},
+			wantName:    "Waka X",
 			wantStatus:  models.StatusActive,
 			wantFlavors: []string{},
 		},
