@@ -4,6 +4,7 @@ import (
 	"flag"
 	"log/slog"
 	"os"
+	"rest_waka/internal/auth"
 
 	"rest_waka/config"
 	"rest_waka/internal/models"
@@ -26,7 +27,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err := db.AutoMigrate(&models.WakaModel{}); err != nil {
+	if err := db.AutoMigrate(
+		&models.WakaModel{},
+		&auth.User{},
+	); err != nil {
 		log.Error("automigrate failed", "error", err)
 		os.Exit(1)
 	}

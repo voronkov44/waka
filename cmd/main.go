@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"rest_waka/config"
+	"rest_waka/internal/auth"
 	"rest_waka/internal/models"
 	"rest_waka/pkg/middleware"
 	"time"
@@ -44,11 +45,21 @@ func main() {
 		os.Exit(1)
 	}
 
-	repo := models.NewGormRepository(gormDB)
-	svc := models.NewService(repo)
+	// repository
+	modelRepo := models.NewGormRepository(gormDB)
+	authRepo := auth.NewGormRepository(gormDB)
 
+	// service
+	modelService := models.NewService(modelRepo)
+	authService, err := auth.NewService(authRepo, cfg.Auth.JWTSecret, cfg.Auth.TokenTTL)
+	if err != nil {
+		log.Error("Failed to create auth service", "error", err)
+	}
+
+	//router
 	router := http.NewServeMux()
-	models.NewModelsHandler(router, models.HandlerDeps{Service: svc})
+	auth.NewAuthHandler(router, auth.HandlerDeps{Service: authService})
+	models.NewModelsHandler(router, models.HandlerDeps{Service: modelService})
 
 	// Middlewares
 	stack := middleware.Chain(

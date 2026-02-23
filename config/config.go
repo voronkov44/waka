@@ -9,6 +9,11 @@ import (
 	"github.com/ilyakaznacheev/cleanenv"
 )
 
+type AuthConfig struct {
+	JWTSecret string        `yaml:"jwt_secret" env:"AUTH_JWT_SECRET" env-required:"true"`
+	TokenTTL  time.Duration `yaml:"token_ttl" env:"AUTH_TOKEN_TTL" env-default:"24h"`
+}
+
 type HTTPConfig struct {
 	Address string        `yaml:"address" env:"API_ADDRESS" env-default:":8080"`
 	Timeout time.Duration `yaml:"timeout" env:"API_TIMEOUT" env-default:"5s"`
@@ -18,6 +23,8 @@ type Config struct {
 	LogLevel  string     `yaml:"log_level" env:"LOG_LEVEL" env-default:"DEBUG"`
 	HTTP      HTTPConfig `yaml:"api_server"`
 	DBAddress string     `yaml:"db_address" env:"DB_ADDRESS" env-required:"true"`
+
+	Auth AuthConfig `yaml:"auth"`
 }
 
 func MustLoad(configPath string) Config {

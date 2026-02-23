@@ -49,6 +49,7 @@ type FlavorRequest struct {
 	Value string `json:"value"`
 }
 
+// WakaModel - Gorm table
 type WakaModel struct {
 	ID          uint64         `gorm:"primaryKey;autoIncrement"`
 	Name        string         `gorm:"not null"`
