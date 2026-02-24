@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"rest_waka/config"
 	"rest_waka/internal/auth"
+	"rest_waka/internal/favorites"
 	"rest_waka/internal/models"
 	"rest_waka/internal/users"
 	"rest_waka/pkg/middleware"
@@ -50,6 +51,7 @@ func main() {
 	modelsRepo := models.NewGormRepository(gormDB)
 	authRepo := auth.NewGormRepository(gormDB)
 	usersRepo := users.NewGormRepository(gormDB)
+	favoritesRepo := favorites.NewGormRepository(gormDB)
 
 	// service
 	modelsService := models.NewService(modelsRepo)
@@ -58,16 +60,24 @@ func main() {
 		log.Error("Failed to create auth service", "error", err)
 	}
 	usersService := users.NewService(usersRepo)
+	favoritesService := favorites.NewService(favoritesRepo)
 
 	//router
 	router := http.NewServeMux()
 
 	models.NewModelsHandler(router, models.HandlerDeps{Service: modelsService})
+
 	auth.NewAuthHandler(router, auth.HandlerDeps{
 		Service:   authService,
 		JWTSecret: cfg.Auth.JWTSecret,
 	})
+
 	users.NewUsersHandler(router, users.HandlerDeps{Service: usersService})
+
+	favorites.NewFavoritesHandler(router, favorites.HandlerDeps{
+		Service:   favoritesService,
+		JWTSecret: cfg.Auth.JWTSecret,
+	})
 
 	// Middlewares
 	stack := middleware.Chain(
