@@ -58,7 +58,10 @@ func main() {
 
 	//router
 	router := http.NewServeMux()
-	auth.NewAuthHandler(router, auth.HandlerDeps{Service: authService})
+	auth.NewAuthHandler(router, auth.HandlerDeps{
+		Service:   authService,
+		JWTSecret: cfg.Auth.JWTSecret,
+	})
 	models.NewModelsHandler(router, models.HandlerDeps{Service: modelService})
 
 	// Middlewares

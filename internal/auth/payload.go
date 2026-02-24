@@ -14,6 +14,17 @@ type TokenResponse struct {
 	Token string `json:"token"`
 }
 
+type MeResponse struct {
+	ID        uint64    `json:"id"`
+	TgID      int64     `json:"tg_id"`
+	Username  string    `json:"username,omitempty"`
+	FirstName string    `json:"first_name,omitempty"`
+	LastName  string    `json:"last_name,omitempty"`
+	PhotoURL  string    `json:"photo_url,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 // User - Gorm table
 type User struct {
 	ID uint64 `gorm:"primaryKey;autoIncrement"`

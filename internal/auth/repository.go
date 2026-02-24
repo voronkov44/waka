@@ -36,17 +36,28 @@ func (r *GormRepository) UpsertTelegram(ctx context.Context, tg TelegramProfile)
 
 	now := time.Now()
 
+	// update: только непустые поля, иначе не обновляем
+	updates := map[string]any{
+		"updated_at": now,
+	}
+	if tg.Username != "" {
+		updates["username"] = tg.Username
+	}
+	if tg.FirstName != "" {
+		updates["first_name"] = tg.FirstName
+	}
+	if tg.LastName != "" {
+		updates["last_name"] = tg.LastName
+	}
+	if tg.PhotoURL != "" {
+		updates["photo_url"] = tg.PhotoURL
+	}
+
 	err := r.db.WithContext(ctx).
 		Clauses(
 			clause.OnConflict{
-				Columns: []clause.Column{{Name: "tg_id"}},
-				DoUpdates: clause.Assignments(map[string]any{
-					"username":   u.Username,
-					"first_name": u.FirstName,
-					"last_name":  u.LastName,
-					"photo_url":  u.PhotoURL,
-					"updated_at": now,
-				}),
+				Columns:   []clause.Column{{Name: "tg_id"}},
+				DoUpdates: clause.Assignments(updates),
 			},
 			clause.Returning{}, // чтобы вернулся id и при update тоже
 		).
@@ -65,5 +76,5 @@ func (r *GormRepository) Get(ctx context.Context, id uint64) (User, error) {
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
 		return User{}, ErrNotFound
 	}
-	return u, nil
+	return u, res.Error
 }

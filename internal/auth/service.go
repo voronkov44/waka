@@ -54,6 +54,28 @@ func (s *Service) LoginTelegram(ctx context.Context, tg TelegramProfile) (string
 	return token, nil
 }
 
+func (s *Service) Me(ctx context.Context, userID uint64) (MeResponse, error) {
+	if userID == 0 {
+		return MeResponse{}, ErrInvalidArgument
+	}
+
+	u, err := s.repo.Get(ctx, userID)
+	if err != nil {
+		return MeResponse{}, err
+	}
+
+	return MeResponse{
+		ID:        u.ID,
+		TgID:      u.TgID,
+		Username:  u.Username,
+		FirstName: u.FirstName,
+		LastName:  u.LastName,
+		PhotoURL:  u.PhotoURL,
+		CreatedAt: u.CreatedAt,
+		UpdatedAt: u.UpdatedAt,
+	}, nil
+}
+
 func (s *Service) generateToken(userID uint64) (string, error) {
 	now := time.Now()
 

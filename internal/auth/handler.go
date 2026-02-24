@@ -3,12 +3,14 @@ package auth
 import (
 	"net/http"
 	"rest_waka/pkg/httpx"
+	"rest_waka/pkg/middleware"
 	"rest_waka/pkg/req"
 	"rest_waka/pkg/res"
 )
 
 type HandlerDeps struct {
-	Service *Service
+	Service   *Service
+	JWTSecret string
 }
 
 type Handler struct {
@@ -21,6 +23,10 @@ func NewAuthHandler(router *http.ServeMux, deps HandlerDeps) {
 	}
 
 	router.HandleFunc("POST /api/auth/telegram", handler.LoginTelegram())
+	router.Handle(
+		"GET /api/auth/me",
+		middleware.RequireUser(handler.Me(), deps.JWTSecret),
+	)
 }
 
 func (handler *Handler) LoginTelegram() http.HandlerFunc {
@@ -42,6 +48,24 @@ func (handler *Handler) LoginTelegram() http.HandlerFunc {
 		}
 
 		res.Json(w, TokenResponse{Token: token}, http.StatusOK)
+	}
+}
+
+func (handler *Handler) Me() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		uid, ok := middleware.UserIDFromContext(r.Context())
+		if !ok || uid == 0 {
+			res.Json(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		data, err := handler.svc.Me(r.Context(), uint64(uid))
+		if err != nil {
+			writeAuthErr(w, err)
+			return
+		}
+
+		res.Json(w, data, http.StatusOK)
 	}
 }
 
