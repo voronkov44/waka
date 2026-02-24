@@ -5,12 +5,13 @@ import (
 	"errors"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
+	"rest_waka/internal/users"
 	"time"
 )
 
 type RepositoryGorm interface {
-	UpsertTelegram(ctx context.Context, tg TelegramProfile) (User, error)
-	Get(ctx context.Context, id uint64) (User, error)
+	UpsertTelegram(ctx context.Context, tg TelegramProfile) (users.User, error)
+	Get(ctx context.Context, id uint64) (users.User, error)
 }
 
 type GormRepository struct {
@@ -21,12 +22,12 @@ func NewGormRepository(db *gorm.DB) *GormRepository {
 	return &GormRepository{db: db}
 }
 
-func (r *GormRepository) UpsertTelegram(ctx context.Context, tg TelegramProfile) (User, error) {
+func (r *GormRepository) UpsertTelegram(ctx context.Context, tg TelegramProfile) (users.User, error) {
 	if tg.TgID <= 0 {
-		return User{}, ErrInvalidArgument
+		return users.User{}, ErrInvalidArgument
 	}
 
-	u := User{
+	u := users.User{
 		TgID:      tg.TgID,
 		Username:  tg.Username,
 		FirstName: tg.FirstName,
@@ -64,17 +65,17 @@ func (r *GormRepository) UpsertTelegram(ctx context.Context, tg TelegramProfile)
 		Create(&u).Error
 
 	if err != nil {
-		return User{}, err
+		return users.User{}, err
 	}
 
 	return u, nil
 }
 
-func (r *GormRepository) Get(ctx context.Context, id uint64) (User, error) {
-	var u User
+func (r *GormRepository) Get(ctx context.Context, id uint64) (users.User, error) {
+	var u users.User
 	res := r.db.WithContext(ctx).First(&u, id)
 	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
-		return User{}, ErrNotFound
+		return users.User{}, ErrNotFound
 	}
 	return u, res.Error
 }

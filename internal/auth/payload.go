@@ -24,21 +24,3 @@ type MeResponse struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
-
-// User - Gorm table
-type User struct {
-	ID uint64 `gorm:"primaryKey;autoIncrement"`
-
-	TgID      int64  `gorm:"not null;uniqueIndex;index"`
-	Username  string `gorm:""`
-	FirstName string `gorm:""`
-	LastName  string `gorm:""`
-	PhotoURL  string `gorm:""`
-
-	CreatedAt time.Time
-	UpdatedAt time.Time
-}
-
-func (User) TableName() string {
-	return "telegram_users"
-}
