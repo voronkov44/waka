@@ -7,16 +7,16 @@ import (
 )
 
 type Model struct {
-	ID          uint64   `json:"id"`
-	Name        string   `json:"name"`
-	Status      string   `json:"status"`
-	Description *string  `json:"description,omitempty"`
-	PhotoURL    *string  `json:"photo_url,omitempty"`
-	PuffsMax    int      `json:"puffs_max"`
-	Flavors     []string `json:"flavors"`
-	PriceCents  *int64   `json:"price_cents,omitempty"`
-	CreatedAt   int64    `json:"created_at"`
-	UpdatedAt   int64    `json:"updated_at"`
+	ID          uint64    `json:"id"`
+	Name        string    `json:"name"`
+	Status      string    `json:"status"`
+	Description *string   `json:"description,omitempty"`
+	PhotoURL    *string   `json:"photo_url,omitempty"`
+	PuffsMax    int       `json:"puffs_max"`
+	Flavors     []string  `json:"flavors"`
+	PriceCents  *int64    `json:"price_cents,omitempty"`
+	CreatedAt   time.Time `json:"created_at"`
+	UpdatedAt   time.Time `json:"updated_at"`
 }
 
 type CreateModelRequest struct {

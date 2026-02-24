@@ -306,7 +306,7 @@ func (s *Service) toAPI(rec WakaModel) (Model, error) {
 		PuffsMax:    rec.PuffsMax,
 		Flavors:     flv,
 		PriceCents:  rec.PriceCents,
-		CreatedAt:   rec.CreatedAt.Unix(),
-		UpdatedAt:   rec.UpdatedAt.Unix(),
+		CreatedAt:   rec.CreatedAt,
+		UpdatedAt:   rec.UpdatedAt,
 	}, nil
 }
