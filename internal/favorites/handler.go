@@ -4,21 +4,33 @@ import (
 	"net/http"
 	"rest_waka/pkg/httpx"
 	"rest_waka/pkg/middleware"
+	"rest_waka/pkg/photourl"
 	"rest_waka/pkg/res"
+	"rest_waka/pkg/s3store"
+	"time"
 )
 
 type HandlerDeps struct {
-	Service   *Service
-	JWTSecret string
+	Service      *Service
+	JWTSecret    string
+	S3           *s3store.Minio
+	UsePresigned bool
+	PresignTTL   time.Duration
 }
 
 type Handler struct {
-	svc *Service
+	svc          *Service
+	s3           *s3store.Minio
+	usePresigned bool
+	presignTTL   time.Duration
 }
 
 func NewFavoritesHandler(router *http.ServeMux, deps HandlerDeps) {
 	handler := &Handler{
-		svc: deps.Service,
+		svc:          deps.Service,
+		s3:           deps.S3,
+		usePresigned: deps.UsePresigned,
+		presignTTL:   deps.PresignTTL,
 	}
 
 	router.Handle("GET /api/favorites", middleware.RequireUser(handler.List(), deps.JWTSecret))
@@ -88,6 +100,12 @@ func (handler *Handler) List() http.HandlerFunc {
 		if err != nil {
 			writeFavErr(w, err)
 			return
+		}
+		for i := range data.Items {
+			data.Items[i].PhotoURL = photourl.Resolve(r.Context(), handler.s3, data.Items[i].PhotoKey, photourl.Options{
+				UsePresigned: handler.usePresigned,
+				PresignTTL:   handler.presignTTL,
+			})
 		}
 		res.Json(w, data, http.StatusOK)
 	}

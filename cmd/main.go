@@ -17,6 +17,7 @@ import (
 	"rest_waka/internal/models"
 	"rest_waka/internal/users"
 	"rest_waka/pkg/middleware"
+	"rest_waka/pkg/s3store"
 	"time"
 )
 
@@ -47,6 +48,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	// s3
+	minio, err := s3store.NewMinio(context.Background(), s3store.Config{
+		Endpoint:        cfg.S3.Endpoint,
+		PresignEndpoint: cfg.S3.PresignEndpoint,
+		AccessKey:       cfg.S3.AccessKey,
+		SecretKey:       cfg.S3.SecretKey,
+		Bucket:          cfg.S3.Bucket,
+		PublicBaseURL:   cfg.S3.PublicBaseURL,
+		Region:          "us-east-1",
+	})
+	if err != nil {
+		log.Error("Failed to init s3", "error", err)
+		os.Exit(1)
+	}
+
 	// repository
 	modelsRepo := models.NewGormRepository(gormDB)
 	authRepo := auth.NewGormRepository(gormDB)
@@ -65,7 +81,12 @@ func main() {
 	//router
 	router := http.NewServeMux()
 
-	models.NewModelsHandler(router, models.HandlerDeps{Service: modelsService})
+	models.NewModelsHandler(router, models.HandlerDeps{
+		Service:      modelsService,
+		S3:           minio,
+		UsePresigned: cfg.S3.UsePresigned,
+		PresignTTL:   cfg.S3.PresignTTL,
+	})
 
 	auth.NewAuthHandler(router, auth.HandlerDeps{
 		Service:   authService,
@@ -75,8 +96,11 @@ func main() {
 	users.NewUsersHandler(router, users.HandlerDeps{Service: usersService})
 
 	favorites.NewFavoritesHandler(router, favorites.HandlerDeps{
-		Service:   favoritesService,
-		JWTSecret: cfg.Auth.JWTSecret,
+		Service:      favoritesService,
+		JWTSecret:    cfg.Auth.JWTSecret,
+		S3:           minio,
+		UsePresigned: cfg.S3.UsePresigned,
+		PresignTTL:   cfg.S3.PresignTTL,
 	})
 
 	// Middlewares

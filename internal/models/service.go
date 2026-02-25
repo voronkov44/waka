@@ -60,7 +60,6 @@ func (s *Service) Create(ctx context.Context, req CreateModelRequest) (Model, er
 		Name:        name,
 		Status:      status,
 		Description: req.Description,
-		PhotoURL:    req.PhotoURL,
 		PuffsMax:    req.PuffsMax,
 		Flavors:     flvJson,
 		PriceCents:  req.PriceCents,
@@ -153,15 +152,6 @@ func (s *Service) Update(ctx context.Context, id uint64, req UpdateModelRequest)
 		} else {
 			v := req.Description.Value
 			rec.Description = &v
-		}
-	}
-
-	if req.PhotoURL.Set {
-		if req.PhotoURL.Null {
-			rec.PhotoURL = nil
-		} else {
-			v := req.PhotoURL.Value
-			rec.PhotoURL = &v
 		}
 	}
 
@@ -285,7 +275,6 @@ func isEmptyPatch(req UpdateModelRequest) bool {
 	return !req.Name.Set &&
 		!req.Status.Set &&
 		!req.Description.Set &&
-		!req.PhotoURL.Set &&
 		!req.PuffsMax.Set &&
 		!req.Flavors.Set &&
 		!req.PriceCents.Set
@@ -302,11 +291,23 @@ func (s *Service) toAPI(rec WakaModel) (Model, error) {
 		Name:        rec.Name,
 		Status:      rec.Status,
 		Description: rec.Description,
-		PhotoURL:    rec.PhotoURL,
+		PhotoKey:    rec.PhotoKey,
+		PhotoURL:    nil, // computed handler
 		PuffsMax:    rec.PuffsMax,
 		Flavors:     flv,
 		PriceCents:  rec.PriceCents,
 		CreatedAt:   rec.CreatedAt,
 		UpdatedAt:   rec.UpdatedAt,
 	}, nil
+}
+
+func (s *Service) SetPhotoKey(ctx context.Context, id uint64, key *string) (Model, error) {
+	if id == 0 {
+		return Model{}, ErrInvalidArgument
+	}
+	rec, err := s.repo.UpdatePhotoKey(ctx, id, key)
+	if err != nil {
+		return Model{}, err
+	}
+	return s.toAPI(rec)
 }

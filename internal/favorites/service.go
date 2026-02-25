@@ -62,7 +62,8 @@ func toAPIModel(rec models.WakaModel) (models.Model, error) {
 		Name:        rec.Name,
 		Status:      rec.Status,
 		Description: rec.Description,
-		PhotoURL:    rec.PhotoURL,
+		PhotoKey:    rec.PhotoKey,
+		PhotoURL:    nil, // computed в handler
 		PuffsMax:    rec.PuffsMax,
 		Flavors:     flv,
 		PriceCents:  rec.PriceCents,

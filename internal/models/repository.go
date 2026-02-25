@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type RepositoryGorm interface {
@@ -12,6 +13,8 @@ type RepositoryGorm interface {
 	List(ctx context.Context, limit, offset int) ([]WakaModel, error)
 	Save(ctx context.Context, rec *WakaModel) error
 	Delete(ctx context.Context, id uint64) error
+
+	UpdatePhotoKey(ctx context.Context, id uint64, key *string) (WakaModel, error)
 }
 
 type GormRepository struct {
@@ -67,4 +70,25 @@ func (r *GormRepository) Delete(ctx context.Context, id uint64) error {
 		return ErrNotFound
 	}
 	return nil
+}
+
+func (r *GormRepository) UpdatePhotoKey(ctx context.Context, id uint64, key *string) (WakaModel, error) {
+	var out WakaModel
+
+	tx := r.db.WithContext(ctx).
+		Model(&WakaModel{}).
+		Clauses(clause.Returning{}).
+		Where("id = ?", id).
+		Updates(map[string]any{
+			"photo_key": key,
+		}).
+		Scan(&out)
+
+	if tx.Error != nil {
+		return WakaModel{}, tx.Error
+	}
+	if tx.RowsAffected == 0 {
+		return WakaModel{}, ErrNotFound
+	}
+	return out, nil
 }
