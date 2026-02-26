@@ -2,47 +2,136 @@ package models_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"rest_waka/internal/models"
 )
 
-func TestModelsHandlerBadJSON(t *testing.T) {
+func TestModelsHandlerCreateComputesPhotoURL(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeModelsService{
+		createFn: func(_ context.Context, req models.CreateModelRequest) (models.Model, error) {
+			if req.Name != "Waka" {
+				t.Fatalf("Create() request name = %q, want Waka", req.Name)
+			}
+			return models.Model{
+				ID:       1,
+				Name:     "Waka",
+				Status:   models.StatusHidden,
+				PuffsMax: 600,
+				Flavors:  []string{"mint"},
+				PhotoKey: strPtr("models/1/photo.jpg"),
+			}, nil
+		},
+	}
+	s3 := &fakeS3{publicBase: "https://cdn.example/bucket"}
+	mux := newModelsMux(svc, s3, false)
+
+	rr := doJSONRequest(mux, http.MethodPost, "/api/models", `{"name":"Waka","puffs_max":600,"flavors":["mint"]}`)
+	if rr.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusCreated)
+	}
+
+	var got models.Model
+	decodeJSON(t, rr, &got)
+	if got.PhotoURL == nil || *got.PhotoURL != "https://cdn.example/bucket/models/1/photo.jpg" {
+		t.Fatalf("photo_url = %#v, want computed public url", got.PhotoURL)
+	}
+	if len(s3.publicCalls) != 1 || s3.publicCalls[0] != "models/1/photo.jpg" {
+		t.Fatalf("public url calls = %#v, want one call with model key", s3.publicCalls)
+	}
+}
+
+func TestModelsHandlerListComputesPhotoURL(t *testing.T) {
+	t.Parallel()
+
+	svc := &fakeModelsService{
+		listFn: func(_ context.Context, limit, offset int) (models.ListModelsResponse, error) {
+			if limit != 20 || offset != 5 {
+				t.Fatalf("List() paging = (%d,%d), want (20,5)", limit, offset)
+			}
+			return models.ListModelsResponse{
+				Items: []models.Model{
+					{ID: 1, Name: "One", Status: models.StatusActive, PuffsMax: 500, Flavors: []string{"mint"}, PhotoKey: strPtr("models/1/a.jpg")},
+					{ID: 2, Name: "Two", Status: models.StatusHidden, PuffsMax: 800, Flavors: []string{"cola"}, PhotoKey: nil},
+					{ID: 3, Name: "Three", Status: models.StatusArchive, PuffsMax: 1200, Flavors: []string{"berry"}, PhotoKey: strPtr("models/3/c.jpg")},
+				},
+				Limit:  limit,
+				Offset: offset,
+			}, nil
+		},
+	}
+	s3 := &fakeS3{publicBase: "https://cdn.example/media"}
+	mux := newModelsMux(svc, s3, false)
+
+	rr := doRequest(mux, http.MethodGet, "/api/models?limit=20&offset=5", nil, "")
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rr.Code, http.StatusOK)
+	}
+
+	var got models.ListModelsResponse
+	decodeJSON(t, rr, &got)
+	if len(got.Items) != 3 {
+		t.Fatalf("items = %d, want 3", len(got.Items))
+	}
+	if got.Items[0].PhotoURL == nil || *got.Items[0].PhotoURL != "https://cdn.example/media/models/1/a.jpg" {
+		t.Fatalf("item[0].photo_url = %#v, want computed url", got.Items[0].PhotoURL)
+	}
+	if got.Items[1].PhotoURL != nil {
+		t.Fatalf("item[1].photo_url = %#v, want nil", got.Items[1].PhotoURL)
+	}
+	if got.Items[2].PhotoURL == nil || *got.Items[2].PhotoURL != "https://cdn.example/media/models/3/c.jpg" {
+		t.Fatalf("item[2].photo_url = %#v, want computed url", got.Items[2].PhotoURL)
+	}
+	if len(s3.publicCalls) != 2 {
+		t.Fatalf("PublicURL calls = %d, want 2", len(s3.publicCalls))
+	}
+}
+
+func TestModelsHandlerUploadPhotoValidation(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name   string
-		method string
-		path   string
-		body   string
+		name             string
+		requestBuilder   func() *http.Request
+		wantStatus       int
+		wantBodyContains string
 	}{
 		{
-			name:   "create bad json",
-			method: http.MethodPost,
-			path:   "/api/models",
-			body:   "{",
+			name: "rejects non multipart",
+			requestBuilder: func() *http.Request {
+				req := httptest.NewRequest(http.MethodPost, "/api/models/7/photo", strings.NewReader(`{"x":1}`))
+				req.Header.Set("Content-Type", "application/json")
+				return req
+			},
+			wantStatus:       http.StatusBadRequest,
+			wantBodyContains: "invalid multipart form",
 		},
 		{
-			name:   "update bad json",
-			method: http.MethodPatch,
-			path:   "/api/models/1",
-			body:   "{",
+			name: "rejects missing file",
+			requestBuilder: func() *http.Request {
+				return newMultipartRequest(t, http.MethodPost, "/api/models/7/photo", false, "", nil)
+			},
+			wantStatus:       http.StatusBadRequest,
+			wantBodyContains: "file is required",
 		},
 		{
-			name:   "add flavor bad json",
-			method: http.MethodPost,
-			path:   "/api/models/1/flavors",
-			body:   "{",
-		},
-		{
-			name:   "remove flavor bad json",
-			method: http.MethodDelete,
-			path:   "/api/models/1/flavors",
-			body:   "{",
+			name: "rejects non image",
+			requestBuilder: func() *http.Request {
+				return newMultipartRequest(t, http.MethodPost, "/api/models/7/photo", true, "note.txt", []byte("plain text"))
+			},
+			wantStatus:       http.StatusBadRequest,
+			wantBodyContains: "only images are allowed",
 		},
 	}
 
@@ -51,187 +140,278 @@ func TestModelsHandlerBadJSON(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			mux := newModelsTestMux(newFakeRepo())
-			rr := doRequest(t, mux, tc.method, tc.path, tc.body)
-			if rr.Code != http.StatusBadRequest {
-				t.Fatalf("status = %d, want %d", rr.Code, http.StatusBadRequest)
+			svc := &fakeModelsService{
+				getFn: func(_ context.Context, id uint64) (models.Model, error) {
+					if id != 7 {
+						t.Fatalf("Get() id = %d, want 7", id)
+					}
+					return models.Model{ID: 7, Name: "W", Status: models.StatusHidden, PuffsMax: 600, Flavors: []string{}}, nil
+				},
+				setPhotoKeyFn: func(_ context.Context, _ uint64, _ *string) (models.Model, error) {
+					t.Fatal("SetPhotoKey() should not be called")
+					return models.Model{}, nil
+				},
 			}
-			if !strings.Contains(rr.Body.String(), "invalid json body") {
-				t.Fatalf("body = %q, want invalid json body", rr.Body.String())
+			s3 := &fakeS3{publicBase: "https://cdn.example/b"}
+			mux := newModelsMux(svc, s3, false)
+
+			rr := httptest.NewRecorder()
+			mux.ServeHTTP(rr, tc.requestBuilder())
+
+			if rr.Code != tc.wantStatus {
+				t.Fatalf("status = %d, want %d", rr.Code, tc.wantStatus)
 			}
-		})
-	}
-}
-
-func TestModelsHandlerInvalidID(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name   string
-		method string
-		path   string
-		body   string
-	}{
-		{name: "get invalid id", method: http.MethodGet, path: "/api/models/not-a-number"},
-		{name: "get must read id from path not query", method: http.MethodGet, path: "/api/models/not-a-number?id=1"},
-		{name: "patch invalid id", method: http.MethodPatch, path: "/api/models/not-a-number", body: `{"name":"x"}`},
-		{name: "delete invalid id", method: http.MethodDelete, path: "/api/models/not-a-number"},
-		{name: "add flavor invalid id", method: http.MethodPost, path: "/api/models/not-a-number/flavors", body: `{"value":"mint"}`},
-		{name: "remove flavor invalid id", method: http.MethodDelete, path: "/api/models/not-a-number/flavors", body: `{"value":"mint"}`},
-	}
-
-	for _, tc := range tests {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			mux := newModelsTestMux(newFakeRepo())
-			rr := doRequest(t, mux, tc.method, tc.path, tc.body)
-			if rr.Code != http.StatusBadRequest {
-				t.Fatalf("status = %d, want %d", rr.Code, http.StatusBadRequest)
+			if !strings.Contains(rr.Body.String(), tc.wantBodyContains) {
+				t.Fatalf("body = %q, want contains %q", rr.Body.String(), tc.wantBodyContains)
 			}
-			if !strings.Contains(rr.Body.String(), "invalid id") {
-				t.Fatalf("body = %q, want invalid id", rr.Body.String())
+			if len(s3.putCalls) != 0 {
+				t.Fatalf("Put() calls = %d, want 0", len(s3.putCalls))
 			}
 		})
 	}
 }
 
-func TestModelsHandlerNotFound(t *testing.T) {
+func TestModelsHandlerUploadPhotoSuccess(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name   string
-		method string
-		path   string
-		body   string
-	}{
-		{name: "get not found", method: http.MethodGet, path: "/api/models/404"},
-		{name: "patch not found", method: http.MethodPatch, path: "/api/models/404", body: `{"name":"new"}`},
-		{name: "delete not found", method: http.MethodDelete, path: "/api/models/404"},
-		{name: "add flavor not found", method: http.MethodPost, path: "/api/models/404/flavors", body: `{"value":"mint"}`},
-		{name: "remove flavor not found", method: http.MethodDelete, path: "/api/models/404/flavors", body: `{"value":"mint"}`},
+	var setPhotoKeyCalls int
+	var newKey string
+
+	svc := &fakeModelsService{
+		getFn: func(_ context.Context, id uint64) (models.Model, error) {
+			if id != 7 {
+				t.Fatalf("Get() id = %d, want 7", id)
+			}
+			return models.Model{
+				ID:       7,
+				Name:     "W",
+				Status:   models.StatusHidden,
+				PuffsMax: 600,
+				Flavors:  []string{"mint"},
+				PhotoKey: strPtr("models/7/old.jpg"),
+			}, nil
+		},
+		setPhotoKeyFn: func(_ context.Context, id uint64, key *string) (models.Model, error) {
+			setPhotoKeyCalls++
+			if id != 7 {
+				t.Fatalf("SetPhotoKey() id = %d, want 7", id)
+			}
+			if key == nil || *key == "" {
+				t.Fatalf("SetPhotoKey() key = %#v, want non-empty", key)
+			}
+			newKey = *key
+			return models.Model{
+				ID:       7,
+				Name:     "W",
+				Status:   models.StatusHidden,
+				PuffsMax: 600,
+				Flavors:  []string{"mint"},
+				PhotoKey: strPtr(*key),
+			}, nil
+		},
+	}
+	s3 := &fakeS3{publicBase: "https://cdn.example/files"}
+	mux := newModelsMux(svc, s3, false)
+
+	jpg := []byte{0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00}
+	req := newMultipartRequest(t, http.MethodPost, "/api/models/7/photo", true, "avatar.jpg", jpg)
+	rr := httptest.NewRecorder()
+	mux.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", rr.Code, http.StatusOK, rr.Body.String())
+	}
+	if setPhotoKeyCalls != 1 {
+		t.Fatalf("SetPhotoKey() calls = %d, want 1", setPhotoKeyCalls)
+	}
+	if !strings.HasPrefix(newKey, "models/7/") {
+		t.Fatalf("new photo key = %q, want prefix models/7/", newKey)
+	}
+	if !strings.HasSuffix(newKey, ".jpg") {
+		t.Fatalf("new photo key = %q, want .jpg suffix", newKey)
+	}
+	if len(s3.putCalls) != 1 {
+		t.Fatalf("Put() calls = %d, want 1", len(s3.putCalls))
+	}
+	if s3.putCalls[0].key != newKey {
+		t.Fatalf("Put() key = %q, want %q", s3.putCalls[0].key, newKey)
+	}
+	if s3.putCalls[0].contentType != "image/jpeg" {
+		t.Fatalf("Put() content type = %q, want image/jpeg", s3.putCalls[0].contentType)
+	}
+	if len(s3.deleteCalls) != 1 || s3.deleteCalls[0] != "models/7/old.jpg" {
+		t.Fatalf("Delete() calls = %#v, want delete old key", s3.deleteCalls)
 	}
 
-	for _, tc := range tests {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			mux := newModelsTestMux(newFakeRepo())
-			rr := doRequest(t, mux, tc.method, tc.path, tc.body)
-			if rr.Code != http.StatusNotFound {
-				t.Fatalf("status = %d, want %d", rr.Code, http.StatusNotFound)
-			}
-			if !strings.Contains(rr.Body.String(), "not found") {
-				t.Fatalf("body = %q, want not found", rr.Body.String())
-			}
-		})
+	var got models.Model
+	decodeJSON(t, rr, &got)
+	if got.PhotoKey == nil || *got.PhotoKey != newKey {
+		t.Fatalf("photo_key = %#v, want %q", got.PhotoKey, newKey)
+	}
+	if got.PhotoURL == nil || *got.PhotoURL != "https://cdn.example/files/"+newKey {
+		t.Fatalf("photo_url = %#v, want computed url", got.PhotoURL)
 	}
 }
 
-func TestModelsHandlerHappyPath(t *testing.T) {
+func TestModelsHandlerDeletePhotoSuccessBestEffortS3Delete(t *testing.T) {
 	t.Parallel()
 
-	repo := newFakeRepo()
-	mux := newModelsTestMux(repo)
+	var setPhotoKeyArg *string
+	svc := &fakeModelsService{
+		getFn: func(_ context.Context, id uint64) (models.Model, error) {
+			if id != 11 {
+				t.Fatalf("Get() id = %d, want 11", id)
+			}
+			return models.Model{
+				ID:       11,
+				Name:     "W",
+				Status:   models.StatusHidden,
+				PuffsMax: 700,
+				Flavors:  []string{"mint"},
+				PhotoKey: strPtr("models/11/old.jpg"),
+			}, nil
+		},
+		setPhotoKeyFn: func(_ context.Context, id uint64, key *string) (models.Model, error) {
+			if id != 11 {
+				t.Fatalf("SetPhotoKey() id = %d, want 11", id)
+			}
+			setPhotoKeyArg = key
+			return models.Model{
+				ID:       11,
+				Name:     "W",
+				Status:   models.StatusHidden,
+				PuffsMax: 700,
+				Flavors:  []string{"mint"},
+				PhotoKey: nil,
+			}, nil
+		},
+	}
+	s3 := &fakeS3{
+		publicBase: "https://cdn.example/files",
+		deleteErr:  errors.New("s3 delete failed"),
+	}
+	mux := newModelsMux(svc, s3, false)
 
-	createBody := `{"name":"Waka 7000","puffs_max":7000,"flavors":["mint"]}`
-	createResp := doRequest(t, mux, http.MethodPost, "/api/models", createBody)
-	if createResp.Code != http.StatusCreated {
-		t.Fatalf("create status = %d, want %d", createResp.Code, http.StatusCreated)
+	rr := doRequest(mux, http.MethodDelete, "/api/models/11/photo", nil, "")
+	if rr.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d body=%s", rr.Code, http.StatusOK, rr.Body.String())
 	}
-	created := decodeModelResponse(t, createResp)
-	if created.ID == 0 {
-		t.Fatalf("created model id = %d, want > 0", created.ID)
+	if setPhotoKeyArg != nil {
+		t.Fatalf("SetPhotoKey() arg = %#v, want nil", setPhotoKeyArg)
 	}
-
-	getResp := doRequest(t, mux, http.MethodGet, "/api/models/1", "")
-	if getResp.Code != http.StatusOK {
-		t.Fatalf("get status = %d, want %d", getResp.Code, http.StatusOK)
-	}
-	got := decodeModelResponse(t, getResp)
-	if got.Name != "Waka 7000" {
-		t.Fatalf("get name = %q, want %q", got.Name, "Waka 7000")
-	}
-
-	listResp := doRequest(t, mux, http.MethodGet, "/api/models?limit=10&offset=0", "")
-	if listResp.Code != http.StatusOK {
-		t.Fatalf("list status = %d, want %d", listResp.Code, http.StatusOK)
-	}
-	var list models.ListModelsResponse
-	decodeJSON(t, listResp, &list)
-	if len(list.Items) != 1 {
-		t.Fatalf("list items = %d, want 1", len(list.Items))
-	}
-
-	updateResp := doRequest(t, mux, http.MethodPatch, "/api/models/1", `{"name":"Waka Updated"}`)
-	if updateResp.Code != http.StatusOK {
-		t.Fatalf("update status = %d, want %d", updateResp.Code, http.StatusOK)
-	}
-	updated := decodeModelResponse(t, updateResp)
-	if updated.Name != "Waka Updated" {
-		t.Fatalf("update name = %q, want %q", updated.Name, "Waka Updated")
-	}
-
-	clearFlavorsResp := doRequest(t, mux, http.MethodPatch, "/api/models/1", `{"flavors":null}`)
-	if clearFlavorsResp.Code != http.StatusOK {
-		t.Fatalf("clear flavors status = %d, want %d", clearFlavorsResp.Code, http.StatusOK)
-	}
-	cleared := decodeModelResponse(t, clearFlavorsResp)
-	if len(cleared.Flavors) != 0 {
-		t.Fatalf("clear flavors result = %#v, want empty", cleared.Flavors)
+	if len(s3.deleteCalls) != 1 || s3.deleteCalls[0] != "models/11/old.jpg" {
+		t.Fatalf("Delete() calls = %#v, want one old key", s3.deleteCalls)
 	}
 
-	addFlavorResp := doRequest(t, mux, http.MethodPost, "/api/models/1/flavors", `{"value":"cola"}`)
-	if addFlavorResp.Code != http.StatusOK {
-		t.Fatalf("add flavor status = %d, want %d", addFlavorResp.Code, http.StatusOK)
+	var got models.Model
+	decodeJSON(t, rr, &got)
+	if got.PhotoKey != nil {
+		t.Fatalf("photo_key = %#v, want nil", got.PhotoKey)
 	}
-	withFlavor := decodeModelResponse(t, addFlavorResp)
-	if !contains(withFlavor.Flavors, "cola") {
-		t.Fatalf("add flavor result = %#v, want flavor cola", withFlavor.Flavors)
-	}
-
-	removeFlavorResp := doRequest(t, mux, http.MethodDelete, "/api/models/1/flavors", `{"value":"cola"}`)
-	if removeFlavorResp.Code != http.StatusOK {
-		t.Fatalf("remove flavor status = %d, want %d", removeFlavorResp.Code, http.StatusOK)
-	}
-	withoutFlavor := decodeModelResponse(t, removeFlavorResp)
-	if contains(withoutFlavor.Flavors, "cola") {
-		t.Fatalf("remove flavor result = %#v, flavor cola should be removed", withoutFlavor.Flavors)
-	}
-
-	deleteResp := doRequest(t, mux, http.MethodDelete, "/api/models/1", "")
-	if deleteResp.Code != http.StatusNoContent {
-		t.Fatalf("delete status = %d, want %d", deleteResp.Code, http.StatusNoContent)
+	if got.PhotoURL != nil {
+		t.Fatalf("photo_url = %#v, want nil", got.PhotoURL)
 	}
 }
 
-func newModelsTestMux(repo *fakeRepo) *http.ServeMux {
-	svc := models.NewService(repo)
+func TestModelsHandlerDeleteModelBestEffortS3Delete(t *testing.T) {
+	t.Parallel()
+
+	events := make([]string, 0, 3)
+	svc := &fakeModelsService{
+		getFn: func(_ context.Context, id uint64) (models.Model, error) {
+			events = append(events, "svc.get")
+			if id != 42 {
+				t.Fatalf("Get() id = %d, want 42", id)
+			}
+			return models.Model{
+				ID:       42,
+				Name:     "W",
+				Status:   models.StatusActive,
+				PuffsMax: 1000,
+				Flavors:  []string{"mint"},
+				PhotoKey: strPtr("models/42/photo.jpg"),
+			}, nil
+		},
+		deleteFn: func(_ context.Context, id uint64) error {
+			events = append(events, "svc.delete")
+			if id != 42 {
+				t.Fatalf("Delete() id = %d, want 42", id)
+			}
+			return nil
+		},
+	}
+	s3 := &fakeS3{
+		deleteErr: errors.New("temporary s3 error"),
+		events:    &events,
+	}
+	mux := newModelsMux(svc, s3, false)
+
+	rr := doRequest(mux, http.MethodDelete, "/api/models/42", nil, "")
+	if rr.Code != http.StatusNoContent {
+		t.Fatalf("status = %d, want %d body=%s", rr.Code, http.StatusNoContent, rr.Body.String())
+	}
+	if len(s3.deleteCalls) != 1 || s3.deleteCalls[0] != "models/42/photo.jpg" {
+		t.Fatalf("Delete() calls = %#v, want one photo key", s3.deleteCalls)
+	}
+
+	wantOrder := []string{"svc.get", "svc.delete", "s3.delete"}
+	if strings.Join(events, ",") != strings.Join(wantOrder, ",") {
+		t.Fatalf("call order = %#v, want %#v", events, wantOrder)
+	}
+}
+
+func newModelsMux(svc *fakeModelsService, s3 *fakeS3, usePresigned bool) *http.ServeMux {
 	mux := http.NewServeMux()
-	models.NewModelsHandler(mux, models.HandlerDeps{Service: svc})
+	models.NewModelsHandler(mux, models.HandlerDeps{
+		Service:      svc,
+		S3:           s3,
+		UsePresigned: usePresigned,
+		PresignTTL:   3 * time.Minute,
+	})
 	return mux
 }
 
-func doRequest(t *testing.T, h http.Handler, method, path, body string) *httptest.ResponseRecorder {
-	t.Helper()
+func doJSONRequest(h http.Handler, method, path, body string) *httptest.ResponseRecorder {
+	return doRequest(h, method, path, strings.NewReader(body), "application/json")
+}
 
-	req := httptest.NewRequest(method, path, bytes.NewBufferString(body))
-	if body != "" {
-		req.Header.Set("Content-Type", "application/json")
+func doRequest(h http.Handler, method, path string, body io.Reader, contentType string) *httptest.ResponseRecorder {
+	req := httptest.NewRequest(method, path, body)
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
 	}
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, req)
 	return rr
 }
 
-func decodeModelResponse(t *testing.T, rr *httptest.ResponseRecorder) models.Model {
+func newMultipartRequest(t *testing.T, method, path string, withFile bool, filename string, file []byte) *http.Request {
 	t.Helper()
 
-	var out models.Model
-	decodeJSON(t, rr, &out)
-	return out
+	var buf bytes.Buffer
+	writer := multipart.NewWriter(&buf)
+
+	if withFile {
+		part, err := writer.CreateFormFile("file", filename)
+		if err != nil {
+			t.Fatalf("CreateFormFile() error = %v", err)
+		}
+		if _, err := part.Write(file); err != nil {
+			t.Fatalf("Write() error = %v", err)
+		}
+	} else {
+		if err := writer.WriteField("x", "1"); err != nil {
+			t.Fatalf("WriteField() error = %v", err)
+		}
+	}
+
+	if err := writer.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+
+	req := httptest.NewRequest(method, path, &buf)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	return req
 }
 
 func decodeJSON(t *testing.T, rr *httptest.ResponseRecorder, dst any) {
@@ -241,11 +421,129 @@ func decodeJSON(t *testing.T, rr *httptest.ResponseRecorder, dst any) {
 	}
 }
 
-func contains(values []string, needle string) bool {
-	for _, v := range values {
-		if v == needle {
-			return true
-		}
+type fakeModelsService struct {
+	createFn       func(ctx context.Context, req models.CreateModelRequest) (models.Model, error)
+	listFn         func(ctx context.Context, limit, offset int) (models.ListModelsResponse, error)
+	getFn          func(ctx context.Context, id uint64) (models.Model, error)
+	updateFn       func(ctx context.Context, id uint64, req models.UpdateModelRequest) (models.Model, error)
+	deleteFn       func(ctx context.Context, id uint64) error
+	addFlavorFn    func(ctx context.Context, id uint64, value string) (models.Model, error)
+	removeFlavorFn func(ctx context.Context, id uint64, value string) (models.Model, error)
+	setPhotoKeyFn  func(ctx context.Context, id uint64, key *string) (models.Model, error)
+}
+
+func (f *fakeModelsService) Create(ctx context.Context, req models.CreateModelRequest) (models.Model, error) {
+	if f.createFn == nil {
+		panic("unexpected Create() call")
 	}
-	return false
+	return f.createFn(ctx, req)
+}
+
+func (f *fakeModelsService) List(ctx context.Context, limit, offset int) (models.ListModelsResponse, error) {
+	if f.listFn == nil {
+		panic("unexpected List() call")
+	}
+	return f.listFn(ctx, limit, offset)
+}
+
+func (f *fakeModelsService) Get(ctx context.Context, id uint64) (models.Model, error) {
+	if f.getFn == nil {
+		panic("unexpected Get() call")
+	}
+	return f.getFn(ctx, id)
+}
+
+func (f *fakeModelsService) Update(ctx context.Context, id uint64, req models.UpdateModelRequest) (models.Model, error) {
+	if f.updateFn == nil {
+		panic("unexpected Update() call")
+	}
+	return f.updateFn(ctx, id, req)
+}
+
+func (f *fakeModelsService) Delete(ctx context.Context, id uint64) error {
+	if f.deleteFn == nil {
+		panic("unexpected Delete() call")
+	}
+	return f.deleteFn(ctx, id)
+}
+
+func (f *fakeModelsService) AddFlavor(ctx context.Context, id uint64, value string) (models.Model, error) {
+	if f.addFlavorFn == nil {
+		panic("unexpected AddFlavor() call")
+	}
+	return f.addFlavorFn(ctx, id, value)
+}
+
+func (f *fakeModelsService) RemoveFlavor(ctx context.Context, id uint64, value string) (models.Model, error) {
+	if f.removeFlavorFn == nil {
+		panic("unexpected RemoveFlavor() call")
+	}
+	return f.removeFlavorFn(ctx, id, value)
+}
+
+func (f *fakeModelsService) SetPhotoKey(ctx context.Context, id uint64, key *string) (models.Model, error) {
+	if f.setPhotoKeyFn == nil {
+		panic("unexpected SetPhotoKey() call")
+	}
+	return f.setPhotoKeyFn(ctx, id, key)
+}
+
+type putCall struct {
+	key         string
+	contentType string
+	body        []byte
+}
+
+type fakeS3 struct {
+	publicBase string
+
+	putCalls    []putCall
+	deleteCalls []string
+	publicCalls []string
+
+	presignedURL string
+	presignedErr error
+	deleteErr    error
+
+	events *[]string
+}
+
+func (f *fakeS3) Put(_ context.Context, key string, body io.Reader, contentType string) error {
+	payload, err := io.ReadAll(body)
+	if err != nil {
+		return err
+	}
+	f.putCalls = append(f.putCalls, putCall{key: key, contentType: contentType, body: payload})
+	return nil
+}
+
+func (f *fakeS3) Delete(_ context.Context, key string) error {
+	if f.events != nil {
+		*f.events = append(*f.events, "s3.delete")
+	}
+	f.deleteCalls = append(f.deleteCalls, key)
+	return f.deleteErr
+}
+
+func (f *fakeS3) PublicURL(key string) string {
+	f.publicCalls = append(f.publicCalls, key)
+	base := strings.TrimRight(f.publicBase, "/")
+	if base == "" {
+		base = "https://example.invalid"
+	}
+	return base + "/" + strings.TrimLeft(key, "/")
+}
+
+func (f *fakeS3) PresignedGetURL(_ context.Context, key string, _ time.Duration) (string, error) {
+	if f.presignedErr != nil {
+		return "", f.presignedErr
+	}
+	if f.presignedURL != "" {
+		return f.presignedURL, nil
+	}
+	return "https://signed.example/" + strings.TrimLeft(key, "/"), nil
+}
+
+func strPtr(v string) *string {
+	return &v
 }

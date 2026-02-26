@@ -59,6 +59,17 @@ func TestServiceCreate(t *testing.T) {
 			wantFlavors: []string{},
 		},
 		{
+			name: "success normalizes archive status",
+			req: models.CreateModelRequest{
+				Name:     "Waka X",
+				Status:   "  ArCHive  ",
+				PuffsMax: 600,
+			},
+			wantName:    "Waka X",
+			wantStatus:  models.StatusArchive,
+			wantFlavors: []string{},
+		},
+		{
 			name: "rejects empty name",
 			req: models.CreateModelRequest{
 				Name:     "   ",
@@ -390,6 +401,17 @@ func TestServiceUpdate(t *testing.T) {
 			},
 		},
 		{
+			name: "puffs max value sets value",
+			id:   1,
+			req:  models.UpdateModelRequest{PuffsMax: patchVal(1200)},
+			assertion: func(t *testing.T, m models.Model, _ *fakeRepo) {
+				t.Helper()
+				if m.PuffsMax != 1200 {
+					t.Fatalf("Update() puffs_max = %d, want %d", m.PuffsMax, 1200)
+				}
+			},
+		},
+		{
 			name:    "puffs max must be >0",
 			id:      1,
 			req:     models.UpdateModelRequest{PuffsMax: patchVal(0)},
@@ -406,7 +428,7 @@ func TestServiceUpdate(t *testing.T) {
 			repo.seedModelWithIDStatus(1, "Old Name", 600, []string{"mint"}, models.StatusActive)
 			old := repo.items[1]
 			old.Description = ptr("old description")
-			old.PhotoURL = ptr("https://old.local/photo.jpg")
+			old.PhotoKey = ptr("models/1/old.jpg")
 			old.PriceCents = ptr(int64(1499))
 			repo.items[1] = old
 
@@ -466,6 +488,73 @@ func TestServiceDelete(t *testing.T) {
 				if _, ok := repo.items[1]; ok {
 					t.Fatal("Delete() did not remove record")
 				}
+			}
+		})
+	}
+}
+
+func TestServiceSetPhotoKey(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name         string
+		id           uint64
+		key          *string
+		wantErr      error
+		wantPhotoKey *string
+	}{
+		{
+			name:    "invalid id",
+			id:      0,
+			key:     ptr("models/1/new.jpg"),
+			wantErr: models.ErrInvalidArgument,
+		},
+		{
+			name:    "not found",
+			id:      999,
+			key:     ptr("models/999/new.jpg"),
+			wantErr: models.ErrNotFound,
+		},
+		{
+			name:         "sets non nil key",
+			id:           1,
+			key:          ptr("models/1/new.jpg"),
+			wantPhotoKey: ptr("models/1/new.jpg"),
+		},
+		{
+			name:         "sets null key",
+			id:           1,
+			key:          nil,
+			wantPhotoKey: nil,
+		},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			repo := newFakeRepo()
+			repo.seedModelWithID(1, "Waka", 600, []string{"mint"})
+			seed := repo.items[1]
+			seed.PhotoKey = ptr("models/1/old.jpg")
+			repo.items[1] = seed
+
+			svc := models.NewService(repo)
+			got, err := svc.SetPhotoKey(context.Background(), tc.id, tc.key)
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("SetPhotoKey() error = %v, want %v", err, tc.wantErr)
+			}
+			if tc.wantErr != nil {
+				return
+			}
+
+			if !equalStringPtr(got.PhotoKey, tc.wantPhotoKey) {
+				t.Fatalf("SetPhotoKey() photo_key = %#v, want %#v", got.PhotoKey, tc.wantPhotoKey)
+			}
+			stored := repo.items[1]
+			if !equalStringPtr(stored.PhotoKey, tc.wantPhotoKey) {
+				t.Fatalf("repo photo_key = %#v, want %#v", stored.PhotoKey, tc.wantPhotoKey)
 			}
 		})
 	}
@@ -728,6 +817,20 @@ func (f *fakeRepo) Delete(_ context.Context, id uint64) error {
 	return nil
 }
 
+func (f *fakeRepo) UpdatePhotoKey(_ context.Context, id uint64, key *string) (models.WakaModel, error) {
+	rec, ok := f.items[id]
+	if !ok {
+		return models.WakaModel{}, models.ErrNotFound
+	}
+	if key == nil {
+		rec.PhotoKey = nil
+	} else {
+		rec.PhotoKey = ptr(*key)
+	}
+	f.items[id] = cloneModelRecord(rec)
+	return cloneModelRecord(rec), nil
+}
+
 func (f *fakeRepo) seedModel(name string, puffs int, flavors []string) models.WakaModel {
 	id := f.nextID
 	f.nextID++
@@ -768,7 +871,23 @@ func (f *fakeRepo) seedModelWithIDStatus(id uint64, name string, puffs int, flav
 func cloneModelRecord(rec models.WakaModel) models.WakaModel {
 	out := rec
 	out.Flavors = append(datatypes.JSON(nil), rec.Flavors...)
+	if rec.Description != nil {
+		out.Description = ptr(*rec.Description)
+	}
+	if rec.PhotoKey != nil {
+		out.PhotoKey = ptr(*rec.PhotoKey)
+	}
+	if rec.PriceCents != nil {
+		out.PriceCents = ptr(*rec.PriceCents)
+	}
 	return out
+}
+
+func equalStringPtr(a, b *string) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
 }
 
 func ptr[T any](v T) *T {

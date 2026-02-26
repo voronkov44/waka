@@ -2,6 +2,7 @@ package models
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"log"
@@ -13,20 +14,36 @@ import (
 	"rest_waka/pkg/randHex"
 	"rest_waka/pkg/req"
 	"rest_waka/pkg/res"
-	"rest_waka/pkg/s3store"
 	"strings"
 	"time"
 )
 
+type modelsService interface {
+	Create(ctx context.Context, req CreateModelRequest) (Model, error)
+	List(ctx context.Context, limit, offset int) (ListModelsResponse, error)
+	Get(ctx context.Context, id uint64) (Model, error)
+	Update(ctx context.Context, id uint64, req UpdateModelRequest) (Model, error)
+	Delete(ctx context.Context, id uint64) error
+	AddFlavor(ctx context.Context, id uint64, value string) (Model, error)
+	RemoveFlavor(ctx context.Context, id uint64, value string) (Model, error)
+	SetPhotoKey(ctx context.Context, id uint64, key *string) (Model, error)
+}
+
+type photoStore interface {
+	Put(ctx context.Context, key string, body io.Reader, contentType string) error
+	Delete(ctx context.Context, key string) error
+	photourl.Resolver
+}
+
 type HandlerDeps struct {
-	Service      *Service
-	S3           *s3store.Minio
+	Service      modelsService
+	S3           photoStore
 	UsePresigned bool
 	PresignTTL   time.Duration
 }
 type Handler struct {
-	svc          *Service
-	s3           *s3store.Minio
+	svc          modelsService
+	s3           photoStore
 	usePresigned bool
 	presignTTL   time.Duration
 }
@@ -67,10 +84,7 @@ func (handler *Handler) CreateModels() http.HandlerFunc {
 			writeModelErr(w, err)
 			return
 		}
-		m.PhotoURL = photourl.Resolve(r.Context(), handler.s3, m.PhotoKey, photourl.Options{
-			UsePresigned: handler.usePresigned,
-			PresignTTL:   handler.presignTTL,
-		})
+		m.PhotoURL = handler.resolvePhotoURL(r.Context(), m.PhotoKey)
 		res.Json(w, m, http.StatusCreated)
 	}
 }
@@ -86,10 +100,7 @@ func (handler *Handler) ListModels() http.HandlerFunc {
 			return
 		}
 		for i := range data.Items {
-			data.Items[i].PhotoURL = photourl.Resolve(r.Context(), handler.s3, data.Items[i].PhotoKey, photourl.Options{
-				UsePresigned: handler.usePresigned,
-				PresignTTL:   handler.presignTTL,
-			})
+			data.Items[i].PhotoURL = handler.resolvePhotoURL(r.Context(), data.Items[i].PhotoKey)
 		}
 		res.Json(w, data, http.StatusOK)
 	}
@@ -108,10 +119,7 @@ func (handler *Handler) GetModels() http.HandlerFunc {
 			writeModelErr(w, err)
 			return
 		}
-		m.PhotoURL = photourl.Resolve(r.Context(), handler.s3, m.PhotoKey, photourl.Options{
-			UsePresigned: handler.usePresigned,
-			PresignTTL:   handler.presignTTL,
-		})
+		m.PhotoURL = handler.resolvePhotoURL(r.Context(), m.PhotoKey)
 		res.Json(w, m, http.StatusOK)
 	}
 }
@@ -136,10 +144,7 @@ func (handler *Handler) UpdateModels() http.HandlerFunc {
 			return
 		}
 
-		m.PhotoURL = photourl.Resolve(r.Context(), handler.s3, m.PhotoKey, photourl.Options{
-			UsePresigned: handler.usePresigned,
-			PresignTTL:   handler.presignTTL,
-		})
+		m.PhotoURL = handler.resolvePhotoURL(r.Context(), m.PhotoKey)
 		res.Json(w, m, http.StatusOK)
 	}
 }
@@ -147,7 +152,7 @@ func (handler *Handler) UpdateModels() http.HandlerFunc {
 func (handler *Handler) DeleteModels() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := httpx.PathUint64(r, "id")
-		if err != nil {
+		if err != nil || id == 0 {
 			res.Json(w, "invalid id", http.StatusBadRequest)
 			return
 		}
@@ -318,10 +323,7 @@ func (handler *Handler) UploadPhoto() http.HandlerFunc {
 			}
 		}
 
-		m.PhotoURL = photourl.Resolve(r.Context(), handler.s3, m.PhotoKey, photourl.Options{
-			UsePresigned: handler.usePresigned,
-			PresignTTL:   handler.presignTTL,
-		})
+		m.PhotoURL = handler.resolvePhotoURL(r.Context(), m.PhotoKey)
 		res.Json(w, m, http.StatusOK)
 	}
 }
@@ -365,12 +367,17 @@ func (handler *Handler) DeletePhoto() http.HandlerFunc {
 			}
 		}
 
-		m.PhotoURL = photourl.Resolve(r.Context(), handler.s3, m.PhotoKey, photourl.Options{
-			UsePresigned: handler.usePresigned,
-			PresignTTL:   handler.presignTTL,
-		})
+		m.PhotoURL = handler.resolvePhotoURL(r.Context(), m.PhotoKey)
 		res.Json(w, m, http.StatusOK)
 	}
+}
+
+// resolvePhotoURL - приватный метод для того, чтобы укоротить код
+func (handler *Handler) resolvePhotoURL(ctx context.Context, key *string) *string {
+	return photourl.Resolve(ctx, handler.s3, key, photourl.Options{
+		UsePresigned: handler.usePresigned,
+		PresignTTL:   handler.presignTTL,
+	})
 }
 
 func writeModelErr(w http.ResponseWriter, err error) {

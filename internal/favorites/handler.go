@@ -1,26 +1,32 @@
 package favorites
 
 import (
+	"context"
 	"net/http"
 	"rest_waka/pkg/httpx"
 	"rest_waka/pkg/middleware"
 	"rest_waka/pkg/photourl"
 	"rest_waka/pkg/res"
-	"rest_waka/pkg/s3store"
 	"time"
 )
 
+type favoritesService interface {
+	Add(ctx context.Context, userID, modelID uint64) error
+	Remove(ctx context.Context, userID, modelID uint64) error
+	List(ctx context.Context, userID uint64, limit, offset int) (ListFavoritesResponse, error)
+}
+
 type HandlerDeps struct {
-	Service      *Service
+	Service      favoritesService
 	JWTSecret    string
-	S3           *s3store.Minio
+	S3           photourl.Resolver
 	UsePresigned bool
 	PresignTTL   time.Duration
 }
 
 type Handler struct {
-	svc          *Service
-	s3           *s3store.Minio
+	svc          favoritesService
+	s3           photourl.Resolver
 	usePresigned bool
 	presignTTL   time.Duration
 }
@@ -102,13 +108,18 @@ func (handler *Handler) List() http.HandlerFunc {
 			return
 		}
 		for i := range data.Items {
-			data.Items[i].PhotoURL = photourl.Resolve(r.Context(), handler.s3, data.Items[i].PhotoKey, photourl.Options{
-				UsePresigned: handler.usePresigned,
-				PresignTTL:   handler.presignTTL,
-			})
+			data.Items[i].PhotoURL = handler.resolvePhotoURL(r.Context(), data.Items[i].PhotoKey)
 		}
 		res.Json(w, data, http.StatusOK)
 	}
+}
+
+// resolvePhotoURL - приватный метод для того, чтобы укоротить код
+func (handler *Handler) resolvePhotoURL(ctx context.Context, key *string) *string {
+	return photourl.Resolve(ctx, handler.s3, key, photourl.Options{
+		UsePresigned: handler.usePresigned,
+		PresignTTL:   handler.presignTTL,
+	})
 }
 
 func writeFavErr(w http.ResponseWriter, err error) {

@@ -24,6 +24,9 @@ go.work
 # Mac users
 .DS_Store
 
+# gocache
+.gocache
+
 # Services .env
 .env
 

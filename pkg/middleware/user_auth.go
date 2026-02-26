@@ -61,6 +61,10 @@ func UserIDFromContext(ctx context.Context) (uint32, bool) {
 	return id, ok
 }
 
+func ContextWithUserID(ctx context.Context, id uint32) context.Context {
+	return context.WithValue(ctx, userIDKey, id)
+}
+
 func readToken(r *http.Request) (string, bool) {
 	authHeader := strings.TrimSpace(r.Header.Get("Authorization"))
 	if authHeader == "" {
