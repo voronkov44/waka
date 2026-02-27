@@ -25,12 +25,12 @@ func NewFaqHandler(router *http.ServeMux, deps HandlerDeps) {
 	router.HandleFunc("GET /api/faq/search", handler.Search())
 
 	// admin
-	router.HandleFunc("POST /api/admin/faq/topics", handler.CreateTopic())
-	router.HandleFunc("PATCH /api/admin/faq/topics/{id}", handler.UpdateTopic())
+	router.HandleFunc("POST /api/faq/topics", handler.CreateTopic())
+	router.HandleFunc("PATCH /api/faq/topics/{id}", handler.UpdateTopic())
 
-	router.HandleFunc("POST /api/admin/faq/articles", handler.CreateArticle())
-	router.HandleFunc("PATCH /api/admin/faq/articles/{id}", handler.UpdateArticle())
-	router.HandleFunc("PUT /api/admin/faq/articles/{id}/blocks", handler.PutBlocks())
+	router.HandleFunc("POST /api/faq/articles", handler.CreateArticle())
+	router.HandleFunc("PATCH /api/faq/articles/{id}", handler.UpdateArticle())
+	router.HandleFunc("PUT /api/faq/articles/{id}/blocks", handler.PutBlocks())
 }
 
 // public
