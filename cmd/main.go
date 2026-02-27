@@ -13,6 +13,7 @@ import (
 	"os/signal"
 	"rest_waka/config"
 	"rest_waka/internal/auth"
+	"rest_waka/internal/faq"
 	"rest_waka/internal/favorites"
 	"rest_waka/internal/models"
 	"rest_waka/internal/users"
@@ -68,15 +69,18 @@ func main() {
 	authRepo := auth.NewGormRepository(gormDB)
 	usersRepo := users.NewGormRepository(gormDB)
 	favoritesRepo := favorites.NewGormRepository(gormDB)
+	faqRepo := faq.NewGormRepository(gormDB)
 
 	// service
 	modelsService := models.NewService(modelsRepo)
 	authService, err := auth.NewService(authRepo, cfg.Auth.JWTSecret, cfg.Auth.TokenTTL)
 	if err != nil {
 		log.Error("Failed to create auth service", "error", err)
+		os.Exit(1)
 	}
 	usersService := users.NewService(usersRepo)
 	favoritesService := favorites.NewService(favoritesRepo)
+	faqService := faq.NewService(faqRepo)
 
 	//router
 	router := http.NewServeMux()
@@ -102,6 +106,8 @@ func main() {
 		UsePresigned: cfg.S3.UsePresigned,
 		PresignTTL:   cfg.S3.PresignTTL,
 	})
+
+	faq.NewFaqHandler(router, faq.HandlerDeps{Service: faqService})
 
 	// Middlewares
 	stack := middleware.Chain(
