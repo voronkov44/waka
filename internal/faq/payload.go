@@ -27,7 +27,7 @@ const (
 	BlockCallout = "callout"
 )
 
-//Gorm db
+// Gorm db
 
 type Topic struct {
 	ID        uint64    `json:"id" gorm:"primaryKey"`
@@ -73,7 +73,7 @@ func (Block) TableName() string {
 	return "faq_blocks"
 }
 
-//DTO
+// DTO
 
 type ArticleSummary struct {
 	ID        uint64    `json:"id"`
@@ -86,6 +86,39 @@ type ArticleSummary struct {
 type ArticleDetail struct {
 	Article
 	Blocks []Block `json:"blocks"`
+}
+
+type AdminArticleSummary struct {
+	ID          uint64     `json:"id"`
+	TopicID     uint64     `json:"topic_id"`
+	Slug        string     `json:"slug"`
+	Title       string     `json:"title"`
+	Status      string     `json:"status"`
+	Channel     string     `json:"channel"`
+	PublishedAt *time.Time `json:"published_at,omitempty"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
+type ListAdminArticlesResponse struct {
+	Items  []AdminArticleSummary `json:"items"`
+	Limit  int                   `json:"limit"`
+	Offset int                   `json:"offset"`
+	Total  int64                 `json:"total"`
+}
+
+type ListAdminArticleDetailsResponse struct {
+	Items  []ArticleDetail `json:"items"`
+	Limit  int             `json:"limit"`
+	Offset int             `json:"offset"`
+	Total  int64           `json:"total"`
+}
+
+type AdminArticleFilter struct {
+	TopicID *uint64 `json:"topic_id,omitempty"`
+	Channel string  `json:"channel,omitempty"` // "" = все, all/tg/miniapp = точный фильтр
+	Status  string  `json:"status,omitempty"`  // "" = все, draft/published/archived = точный фильтр
+	Limit   int     `json:"limit"`
+	Offset  int     `json:"offset"`
 }
 
 // request
@@ -128,6 +161,18 @@ type PutBlock struct {
 	Data datatypes.JSON `json:"data"`
 }
 
+type CreateBlockRequest struct {
+	Sort int            `json:"sort"`
+	Type string         `json:"type"`
+	Data datatypes.JSON `json:"data"`
+}
+
+type UpdateBlockRequest struct {
+	Sort *int            `json:"sort,omitempty"`
+	Type *string         `json:"type,omitempty"`
+	Data *datatypes.JSON `json:"data,omitempty"`
+}
+
 // helpers
 
 func normalizeChannel(s string) (string, bool) {
@@ -144,10 +189,42 @@ func normalizeChannel(s string) (string, bool) {
 	}
 }
 
+func normalizeChannelFilter(s string) (string, bool) {
+	v := strings.ToLower(strings.TrimSpace(s))
+	switch v {
+	case "":
+		return "", true
+	case ChannelAll:
+		return ChannelAll, true
+	case ChannelTG:
+		return ChannelTG, true
+	case ChannelMiniApp:
+		return ChannelMiniApp, true
+	default:
+		return "", false
+	}
+}
+
 func normalizeStatus(s string) (string, bool) {
 	v := strings.ToLower(strings.TrimSpace(s))
 	switch v {
 	case "", StatusDraft:
+		return StatusDraft, true
+	case StatusPublished:
+		return StatusPublished, true
+	case StatusArchived:
+		return StatusArchived, true
+	default:
+		return "", false
+	}
+}
+
+func normalizeStatusFilter(s string) (string, bool) {
+	v := strings.ToLower(strings.TrimSpace(s))
+	switch v {
+	case "":
+		return "", true
+	case StatusDraft:
 		return StatusDraft, true
 	case StatusPublished:
 		return StatusPublished, true

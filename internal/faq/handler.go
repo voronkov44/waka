@@ -5,6 +5,8 @@ import (
 	"rest_waka/pkg/httpx"
 	"rest_waka/pkg/req"
 	"rest_waka/pkg/res"
+	"strconv"
+	"strings"
 )
 
 type HandlerDeps struct {
@@ -24,13 +26,23 @@ func NewFaqHandler(router *http.ServeMux, deps HandlerDeps) {
 	router.HandleFunc("GET /api/faq/articles/{id}", handler.GetArticle())
 	router.HandleFunc("GET /api/faq/search", handler.Search())
 
-	// admin
+	// admin read
+	router.HandleFunc("GET /api/admin/faq/topics", handler.AdminListTopics())
+	router.HandleFunc("GET /api/admin/faq/topics/{topicID}/articles", handler.AdminListArticlesByTopic())
+	router.HandleFunc("GET /api/admin/faq/articles", handler.AdminListArticles())
+	router.HandleFunc("GET /api/admin/faq/articles/{id}", handler.AdminGetArticle())
+
+	// admin write
 	router.HandleFunc("POST /api/faq/topics", handler.CreateTopic())
 	router.HandleFunc("PATCH /api/faq/topics/{id}", handler.UpdateTopic())
 
 	router.HandleFunc("POST /api/faq/articles", handler.CreateArticle())
 	router.HandleFunc("PATCH /api/faq/articles/{id}", handler.UpdateArticle())
 	router.HandleFunc("PUT /api/faq/articles/{id}/blocks", handler.PutBlocks())
+
+	router.HandleFunc("POST /api/admin/faq/articles/{id}/blocks", handler.CreateBlock())
+	router.HandleFunc("PATCH /api/admin/faq/blocks/{id}", handler.UpdateBlock())
+	router.HandleFunc("DELETE /api/admin/faq/blocks/{id}", handler.DeleteBlock())
 }
 
 // public
@@ -97,7 +109,116 @@ func (handler *Handler) Search() http.HandlerFunc {
 	}
 }
 
-// admin
+// admin read
+
+func (handler *Handler) AdminListTopics() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		data, err := handler.svc.ListTopicsAdmin(r.Context())
+		if err != nil {
+			writeFaqErr(w, err)
+			return
+		}
+		res.Json(w, data, http.StatusOK)
+	}
+}
+
+func (handler *Handler) AdminListArticlesByTopic() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		topicID, err := httpx.PathUint64(r, "topicID")
+		if err != nil {
+			res.Json(w, "invalid topicID", http.StatusBadRequest)
+			return
+		}
+
+		filter := AdminArticleFilter{
+			TopicID: &topicID,
+			Channel: strings.TrimSpace(r.URL.Query().Get("channel")),
+			Status:  strings.TrimSpace(r.URL.Query().Get("status")),
+			Limit:   httpx.QueryInt(r, "limit", 20),
+			Offset:  httpx.QueryInt(r, "offset", 0),
+		}
+
+		withBlocks := queryBool(r, "with_blocks")
+
+		if withBlocks {
+			data, err := handler.svc.ListArticlesAdminWithBlocks(r.Context(), filter)
+			if err != nil {
+				writeFaqErr(w, err)
+				return
+			}
+			res.Json(w, data, http.StatusOK)
+			return
+		}
+
+		data, err := handler.svc.ListArticlesAdmin(r.Context(), filter)
+		if err != nil {
+			writeFaqErr(w, err)
+			return
+		}
+		res.Json(w, data, http.StatusOK)
+	}
+}
+
+func (handler *Handler) AdminListArticles() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var topicID *uint64
+		if raw := strings.TrimSpace(r.URL.Query().Get("topic_id")); raw != "" {
+			v, err := strconv.ParseUint(raw, 10, 64)
+			if err != nil || v == 0 {
+				res.Json(w, "invalid topic_id", http.StatusBadRequest)
+				return
+			}
+			tv := v
+			topicID = &tv
+		}
+
+		filter := AdminArticleFilter{
+			TopicID: topicID,
+			Channel: strings.TrimSpace(r.URL.Query().Get("channel")),
+			Status:  strings.TrimSpace(r.URL.Query().Get("status")),
+			Limit:   httpx.QueryInt(r, "limit", 20),
+			Offset:  httpx.QueryInt(r, "offset", 0),
+		}
+
+		withBlocks := queryBool(r, "with_blocks")
+
+		if withBlocks {
+			data, err := handler.svc.ListArticlesAdminWithBlocks(r.Context(), filter)
+			if err != nil {
+				writeFaqErr(w, err)
+				return
+			}
+			res.Json(w, data, http.StatusOK)
+			return
+		}
+
+		data, err := handler.svc.ListArticlesAdmin(r.Context(), filter)
+		if err != nil {
+			writeFaqErr(w, err)
+			return
+		}
+		res.Json(w, data, http.StatusOK)
+	}
+}
+
+func (handler *Handler) AdminGetArticle() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := httpx.PathUint64(r, "id")
+		if err != nil {
+			res.Json(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+
+		data, err := handler.svc.GetArticleAdmin(r.Context(), id)
+		if err != nil {
+			writeFaqErr(w, err)
+			return
+		}
+		res.Json(w, data, http.StatusOK)
+	}
+}
+
+// admin write
 
 func (handler *Handler) CreateTopic() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -199,6 +320,78 @@ func (handler *Handler) PutBlocks() http.HandlerFunc {
 			return
 		}
 		res.Json(w, data, http.StatusOK)
+	}
+}
+
+func (handler *Handler) CreateBlock() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		articleID, err := httpx.PathUint64(r, "id")
+		if err != nil {
+			res.Json(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+
+		payload, err := req.Decode[CreateBlockRequest](r.Body)
+		if err != nil {
+			res.Json(w, "invalid body", http.StatusBadRequest)
+			return
+		}
+
+		data, err := handler.svc.CreateBlock(r.Context(), articleID, payload)
+		if err != nil {
+			writeFaqErr(w, err)
+			return
+		}
+		res.Json(w, data, http.StatusCreated)
+	}
+}
+
+func (handler *Handler) UpdateBlock() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		blockID, err := httpx.PathUint64(r, "id")
+		if err != nil {
+			res.Json(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+
+		payload, err := req.Decode[UpdateBlockRequest](r.Body)
+		if err != nil {
+			res.Json(w, "invalid body", http.StatusBadRequest)
+			return
+		}
+
+		data, err := handler.svc.UpdateBlock(r.Context(), blockID, payload)
+		if err != nil {
+			writeFaqErr(w, err)
+			return
+		}
+		res.Json(w, data, http.StatusOK)
+	}
+}
+
+func (handler *Handler) DeleteBlock() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		blockID, err := httpx.PathUint64(r, "id")
+		if err != nil {
+			res.Json(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+
+		if err := handler.svc.DeleteBlock(r.Context(), blockID); err != nil {
+			writeFaqErr(w, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+func queryBool(r *http.Request, key string) bool {
+	v := strings.ToLower(strings.TrimSpace(r.URL.Query().Get(key)))
+	switch v {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
 	}
 }
 

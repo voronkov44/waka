@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
@@ -16,15 +17,24 @@ type Repository interface {
 	CreateTopic(ctx context.Context, t *Topic) error
 	UpdateTopic(ctx context.Context, id uint64, patch UpdateTopicRequest) (Topic, error)
 
-	// articles
+	// public articles
 	ListArticlesByTopic(ctx context.Context, topicID uint64, channel string) ([]ArticleSummary, error)
 	GetArticle(ctx context.Context, id uint64) (Article, []Block, error)
 	SearchArticles(ctx context.Context, q string, channel string, limit, offset int) ([]ArticleSummary, error)
+
+	// admin articles
+	ListArticlesAdmin(ctx context.Context, filter AdminArticleFilter) ([]Article, int64, error)
+	GetArticleAnyStatus(ctx context.Context, id uint64) (Article, []Block, error)
 
 	CreateArticle(ctx context.Context, a *Article) error
 	UpdateArticle(ctx context.Context, id uint64, patch UpdateArticleRequest) (Article, error)
 
 	ReplaceBlocks(ctx context.Context, articleID uint64, blocks []Block) ([]Block, error)
+	CreateBlock(ctx context.Context, b *Block) error
+	UpdateBlock(ctx context.Context, id uint64, patch UpdateBlockRequest) (Block, error)
+	DeleteBlock(ctx context.Context, id uint64) (uint64, error)
+
+	UpdateArticleSearchText(ctx context.Context, articleID uint64, searchText *string) error
 }
 
 type GormRepository struct {
@@ -55,10 +65,7 @@ func (r *GormRepository) GetTopic(ctx context.Context, id uint64) (Topic, error)
 }
 
 func (r *GormRepository) CreateTopic(ctx context.Context, t *Topic) error {
-	if err := r.db.WithContext(ctx).Create(t).Error; err != nil {
-		return err
-	}
-	return nil
+	return r.db.WithContext(ctx).Create(t).Error
 }
 
 func (r *GormRepository) UpdateTopic(ctx context.Context, id uint64, patch UpdateTopicRequest) (Topic, error) {
@@ -135,6 +142,28 @@ func (r *GormRepository) GetArticle(ctx context.Context, id uint64) (Article, []
 	return a, blocks, nil
 }
 
+func (r *GormRepository) GetArticleAnyStatus(ctx context.Context, id uint64) (Article, []Block, error) {
+	var a Article
+	err := r.db.WithContext(ctx).First(&a, "id = ?", id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return Article{}, nil, ErrNotFound
+	}
+	if err != nil {
+		return Article{}, nil, err
+	}
+
+	var blocks []Block
+	if err := r.db.WithContext(ctx).
+		Model(&Block{}).
+		Where("article_id = ?", a.ID).
+		Order("sort asc, id asc").
+		Find(&blocks).Error; err != nil {
+		return Article{}, nil, err
+	}
+
+	return a, blocks, nil
+}
+
 func (r *GormRepository) SearchArticles(ctx context.Context, q string, channel string, limit, offset int) ([]ArticleSummary, error) {
 	var out []ArticleSummary
 
@@ -147,7 +176,6 @@ func (r *GormRepository) SearchArticles(ctx context.Context, q string, channel s
 		dbq = dbq.Where("channel IN (?, ?)", ChannelAll, channel)
 	}
 
-	// простой поиск (ILIKE) - можно заменить на FULLTEXT/tsvector
 	if strings.TrimSpace(q) != "" {
 		like := "%" + strings.TrimSpace(q) + "%"
 		dbq = dbq.Where("(title ILIKE ? OR search_text ILIKE ?)", like, like)
@@ -162,6 +190,46 @@ func (r *GormRepository) SearchArticles(ctx context.Context, q string, channel s
 
 	err := dbq.Order("updated_at desc, id desc").Limit(limit).Offset(offset).Find(&out).Error
 	return out, err
+}
+
+func (r *GormRepository) ListArticlesAdmin(ctx context.Context, filter AdminArticleFilter) ([]Article, int64, error) {
+	var items []Article
+	var total int64
+
+	q := r.db.WithContext(ctx).Model(&Article{})
+
+	if filter.TopicID != nil {
+		q = q.Where("topic_id = ?", *filter.TopicID)
+	}
+	if filter.Status != "" {
+		q = q.Where("status = ?", filter.Status)
+	}
+	if filter.Channel != "" {
+		q = q.Where("channel = ?", filter.Channel)
+	}
+
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	limit := filter.Limit
+	offset := filter.Offset
+	if limit <= 0 || limit > 100 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	err := q.Order("updated_at desc, id desc").
+		Limit(limit).
+		Offset(offset).
+		Find(&items).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return items, total, nil
 }
 
 func (r *GormRepository) CreateArticle(ctx context.Context, a *Article) error {
@@ -195,6 +263,14 @@ func (r *GormRepository) UpdateArticle(ctx context.Context, id uint64, patch Upd
 		}
 		if patch.Status != nil {
 			updates["status"] = *patch.Status
+
+			if *patch.Status == StatusPublished && a.Status != StatusPublished {
+				now := time.Now()
+				updates["published_at"] = &now
+			}
+			if *patch.Status != StatusPublished {
+				updates["published_at"] = nil
+			}
 		}
 		if patch.Channel != nil {
 			updates["channel"] = *patch.Channel
@@ -220,7 +296,6 @@ func (r *GormRepository) UpdateArticle(ctx context.Context, id uint64, patch Upd
 
 func (r *GormRepository) ReplaceBlocks(ctx context.Context, articleID uint64, blocks []Block) ([]Block, error) {
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		// ensure article exists
 		var a Article
 		if err := tx.First(&a, "id = ?", articleID).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -252,13 +327,93 @@ func (r *GormRepository) ReplaceBlocks(ctx context.Context, articleID uint64, bl
 	return blocks, nil
 }
 
+func (r *GormRepository) CreateBlock(ctx context.Context, b *Block) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var a Article
+		if err := tx.First(&a, "id = ?", b.ArticleID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrNotFound
+			}
+			return err
+		}
+		return tx.Create(b).Error
+	})
+}
+
+func (r *GormRepository) UpdateBlock(ctx context.Context, id uint64, patch UpdateBlockRequest) (Block, error) {
+	var out Block
+
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.First(&out, "id = ?", id).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrNotFound
+			}
+			return err
+		}
+
+		updates := map[string]any{}
+		if patch.Sort != nil {
+			updates["sort"] = *patch.Sort
+		}
+		if patch.Type != nil {
+			updates["type"] = *patch.Type
+		}
+		if patch.Data != nil {
+			updates["data"] = *patch.Data
+		}
+		if len(updates) == 0 {
+			return nil
+		}
+
+		if err := tx.Model(&Block{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+			return err
+		}
+
+		return tx.First(&out, "id = ?", id).Error
+	})
+	if err != nil {
+		return Block{}, err
+	}
+
+	return out, nil
+}
+
+func (r *GormRepository) DeleteBlock(ctx context.Context, id uint64) (uint64, error) {
+	var blk Block
+
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.First(&blk, "id = ?", id).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrNotFound
+			}
+			return err
+		}
+
+		if err := tx.Delete(&Block{}, "id = ?", id).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	return blk.ArticleID, nil
+}
+
+func (r *GormRepository) UpdateArticleSearchText(ctx context.Context, articleID uint64, searchText *string) error {
+	return r.db.WithContext(ctx).
+		Model(&Article{}).
+		Where("id = ?", articleID).
+		Update("search_text", searchText).Error
+}
+
 func isUniqueViolation(err error) bool {
 	if err == nil {
 		return false
 	}
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
-		// 23505 unique_violation
 		return pgErr.Code == "23505"
 	}
 	return false
