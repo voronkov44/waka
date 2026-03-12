@@ -264,6 +264,9 @@ func (s *service) UpdateArticle(ctx context.Context, id uint64, req UpdateArticl
 	}
 
 	patch := req
+	if patch.TopicID != nil && *patch.TopicID == 0 {
+		return Article{}, ErrInvalidArgument
+	}
 
 	if patch.Title != nil {
 		v := strings.TrimSpace(*patch.Title)
