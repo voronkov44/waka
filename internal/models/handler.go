@@ -27,6 +27,9 @@ type modelsService interface {
 	AddFlavor(ctx context.Context, id uint64, value string) (Model, error)
 	RemoveFlavor(ctx context.Context, id uint64, value string) (Model, error)
 	SetPhotoKey(ctx context.Context, id uint64, key *string) (Model, error)
+
+	ListActive(ctx context.Context, limit, offset int) (ListModelsResponse, error)
+	GetActive(ctx context.Context, id uint64) (Model, error)
 }
 
 type photoStore interface {
@@ -69,6 +72,10 @@ func NewModelsHandler(router *http.ServeMux, deps HandlerDeps) {
 	//	upload photo
 	router.HandleFunc("POST /api/models/{id}/photo", handler.UploadPhoto())
 	router.HandleFunc("DELETE /api/models/{id}/photo", handler.DeletePhoto())
+
+	// public pen
+	router.HandleFunc("GET /api/catalog/models", handler.ActiveListModels())
+	router.HandleFunc("GET /api/catalog/models/{id}", handler.ActiveGetModels())
 }
 
 func (handler *Handler) CreateModels() http.HandlerFunc {
@@ -369,6 +376,66 @@ func (handler *Handler) DeletePhoto() http.HandlerFunc {
 
 		m.PhotoURL = handler.resolvePhotoURL(r.Context(), m.PhotoKey)
 		res.Json(w, m, http.StatusOK)
+	}
+}
+
+func (handler *Handler) ActiveListModels() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		limit := httpx.QueryInt(r, "limit", 50)
+		offset := httpx.QueryInt(r, "offset", 0)
+
+		data, err := handler.svc.ListActive(r.Context(), limit, offset)
+		if err != nil {
+			res.Json(w, "internal error", http.StatusInternalServerError)
+			return
+		}
+
+		out := ListPublicModelsResponse{
+			Items:  make([]PublicModel, 0, len(data.Items)),
+			Limit:  data.Limit,
+			Offset: data.Offset,
+		}
+
+		for i := range data.Items {
+			data.Items[i].PhotoURL = handler.resolvePhotoURL(r.Context(), data.Items[i].PhotoKey)
+			out.Items = append(out.Items, toPublicModel(data.Items[i]))
+		}
+
+		res.Json(w, out, http.StatusOK)
+	}
+}
+
+func (handler *Handler) ActiveGetModels() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := httpx.PathUint64(r, "id")
+		if err != nil {
+			res.Json(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+
+		m, err := handler.svc.GetActive(r.Context(), id)
+		if err != nil {
+			writeModelErr(w, err)
+			return
+		}
+
+		m.PhotoURL = handler.resolvePhotoURL(r.Context(), m.PhotoKey)
+
+		out := toPublicModel(m)
+		res.Json(w, out, http.StatusOK)
+	}
+}
+
+// toPublicModel - mapper для публичной ручки
+func toPublicModel(m Model) PublicModel {
+	return PublicModel{
+		ID:          m.ID,
+		Name:        m.Name,
+		Description: m.Description,
+		PhotoURL:    m.PhotoURL,
+		PuffsMax:    m.PuffsMax,
+		Flavors:     m.Flavors,
+		PriceCents:  m.PriceCents,
 	}
 }
 

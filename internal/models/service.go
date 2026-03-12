@@ -271,6 +271,48 @@ func (s *Service) RemoveFlavor(ctx context.Context, id uint64, value string) (Mo
 	return s.toAPI(rec)
 }
 
+func (s *Service) ListActive(ctx context.Context, limit, offset int) (ListModelsResponse, error) {
+	if limit <= 0 || offset > 0 {
+		limit = 50
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	recs, err := s.repo.ListByStatus(ctx, StatusActive, limit, offset)
+	if err != nil {
+		return ListModelsResponse{}, err
+	}
+
+	items := make([]Model, 0, len(recs))
+	for _, r := range recs {
+		m, err := s.toAPI(r)
+		if err != nil {
+			return ListModelsResponse{}, err
+		}
+		items = append(items, m)
+	}
+
+	return ListModelsResponse{
+		Items:  items,
+		Limit:  limit,
+		Offset: offset,
+	}, nil
+}
+
+func (s *Service) GetActive(ctx context.Context, id uint64) (Model, error) {
+	if id == 0 {
+		return Model{}, ErrInvalidArgument
+	}
+
+	rec, err := s.repo.GetByIDAndStatus(ctx, id, StatusActive)
+	if err != nil {
+		return Model{}, err
+	}
+
+	return s.toAPI(rec)
+}
+
 func isEmptyPatch(req UpdateModelRequest) bool {
 	return !req.Name.Set &&
 		!req.Status.Set &&

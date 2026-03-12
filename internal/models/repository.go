@@ -15,6 +15,9 @@ type RepositoryGorm interface {
 	Delete(ctx context.Context, id uint64) error
 
 	UpdatePhotoKey(ctx context.Context, id uint64, key *string) (WakaModel, error)
+
+	ListByStatus(ctx context.Context, status string, limit, offset int) ([]WakaModel, error)
+	GetByIDAndStatus(ctx context.Context, id uint64, status string) (WakaModel, error)
 }
 
 type GormRepository struct {
@@ -91,4 +94,38 @@ func (r *GormRepository) UpdatePhotoKey(ctx context.Context, id uint64, key *str
 		return WakaModel{}, ErrNotFound
 	}
 	return out, nil
+}
+
+func (r *GormRepository) ListByStatus(ctx context.Context, status string, limit, offset int) ([]WakaModel, error) {
+	var list []WakaModel
+
+	q := r.db.WithContext(ctx).
+		Model(&WakaModel{}).
+		Where("status = ?", status).
+		Order("id DESC")
+
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	if offset > 0 {
+		q = q.Offset(offset)
+	}
+
+	if err := q.Find(&list).Error; err != nil {
+		return nil, err
+	}
+	return list, nil
+}
+
+func (r *GormRepository) GetByIDAndStatus(ctx context.Context, id uint64, status string) (WakaModel, error) {
+	var rec WakaModel
+
+	res := r.db.WithContext(ctx).
+		Where("id = ? AND status = ?", id, status).
+		First(&rec)
+
+	if errors.Is(res.Error, gorm.ErrRecordNotFound) {
+		return WakaModel{}, ErrNotFound
+	}
+	return rec, res.Error
 }
