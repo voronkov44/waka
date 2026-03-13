@@ -56,10 +56,21 @@ func (s *Service) Create(ctx context.Context, req CreateModelRequest) (Model, er
 		return Model{}, err
 	}
 
+	tag, err := normalizeTag(req.Tag)
+	if err != nil {
+		return Model{}, err
+	}
+
+	tagJSON, err := marshalTag(tag)
+	if err != nil {
+		return Model{}, err
+	}
+
 	rec := WakaModel{
 		Name:        name,
 		Status:      status,
 		Description: req.Description,
+		Tag:         tagJSON,
 		PuffsMax:    req.PuffsMax,
 		Flavors:     flvJson,
 		PriceCents:  req.PriceCents,
@@ -152,6 +163,22 @@ func (s *Service) Update(ctx context.Context, id uint64, req UpdateModelRequest)
 		} else {
 			v := req.Description.Value
 			rec.Description = &v
+		}
+	}
+
+	if req.Tag.Set {
+		if req.Tag.Null {
+			rec.Tag = nil
+		} else {
+			tag, err := normalizeTag(&req.Tag.Value)
+			if err != nil {
+				return Model{}, err
+			}
+			tagJSON, err := marshalTag(tag)
+			if err != nil {
+				return Model{}, err
+			}
+			rec.Tag = tagJSON
 		}
 	}
 
@@ -317,6 +344,7 @@ func isEmptyPatch(req UpdateModelRequest) bool {
 	return !req.Name.Set &&
 		!req.Status.Set &&
 		!req.Description.Set &&
+		!req.Tag.Set &&
 		!req.PuffsMax.Set &&
 		!req.Flavors.Set &&
 		!req.PriceCents.Set
@@ -328,6 +356,11 @@ func (s *Service) toAPI(rec WakaModel) (Model, error) {
 		return Model{}, err
 	}
 
+	tag, err := unmarshalTag(rec.Tag)
+	if err != nil {
+		return Model{}, err
+	}
+
 	return Model{
 		ID:          rec.ID,
 		Name:        rec.Name,
@@ -335,6 +368,7 @@ func (s *Service) toAPI(rec WakaModel) (Model, error) {
 		Description: rec.Description,
 		PhotoKey:    rec.PhotoKey,
 		PhotoURL:    nil, // computed handler
+		Tag:         tag,
 		PuffsMax:    rec.PuffsMax,
 		Flavors:     flv,
 		PriceCents:  rec.PriceCents,

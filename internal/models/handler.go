@@ -436,6 +436,7 @@ func toPublicModel(m Model) PublicModel {
 		Name:        m.Name,
 		Description: m.Description,
 		PhotoURL:    m.PhotoURL,
+		Tag:         m.Tag,
 		PuffsMax:    m.PuffsMax,
 		Flavors:     m.Flavors,
 		PriceCents:  m.PriceCents,

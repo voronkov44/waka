@@ -6,6 +6,13 @@ import (
 	"time"
 )
 
+type ModelTag struct {
+	Key       string `json:"key,omitempty"`
+	Label     string `json:"label"`
+	BgColor   string `json:"bg_color"`
+	TextColor string `json:"text_color"`
+}
+
 type Model struct {
 	ID          uint64  `json:"id"`
 	Name        string  `json:"name"`
@@ -15,6 +22,7 @@ type Model struct {
 	PhotoKey *string `json:"photo_key,omitempty"` // field db
 	PhotoURL *string `json:"photo_url,omitempty"` // computed, dont db
 
+	Tag        *ModelTag `json:"tag,omitempty"`
 	PuffsMax   int       `json:"puffs_max"`
 	Flavors    []string  `json:"flavors"`
 	PriceCents *int64    `json:"price_cents,omitempty"`
@@ -23,28 +31,31 @@ type Model struct {
 }
 
 type PublicModel struct {
-	ID          uint64   `json:"id"`
-	Name        string   `json:"name"`
-	Description *string  `json:"description,omitempty"`
-	PhotoURL    *string  `json:"photo_url,omitempty"`
-	PuffsMax    int      `json:"puffs_max"`
-	Flavors     []string `json:"flavors"`
-	PriceCents  *int64   `json:"price_cents,omitempty"`
+	ID          uint64    `json:"id"`
+	Name        string    `json:"name"`
+	Description *string   `json:"description,omitempty"`
+	PhotoURL    *string   `json:"photo_url,omitempty"`
+	Tag         *ModelTag `json:"tag,omitempty"`
+	PuffsMax    int       `json:"puffs_max"`
+	Flavors     []string  `json:"flavors"`
+	PriceCents  *int64    `json:"price_cents,omitempty"`
 }
 
 type CreateModelRequest struct {
-	Name        string   `json:"name"`
-	Status      string   `json:"status,omitempty"`
-	Description *string  `json:"description"`
-	PuffsMax    int      `json:"puffs_max"`
-	Flavors     []string `json:"flavors"`
-	PriceCents  *int64   `json:"price_cents"`
+	Name        string    `json:"name"`
+	Status      string    `json:"status,omitempty"`
+	Description *string   `json:"description"`
+	Tag         *ModelTag `json:"tag,omitempty"`
+	PuffsMax    int       `json:"puffs_max"`
+	Flavors     []string  `json:"flavors"`
+	PriceCents  *int64    `json:"price_cents"`
 }
 
 type UpdateModelRequest struct {
 	Name        patch.Field[string]   `json:"name"`
 	Status      patch.Field[string]   `json:"status"`
 	Description patch.Field[string]   `json:"description"`
+	Tag         patch.Field[ModelTag] `json:"tag"`
 	PuffsMax    patch.Field[int]      `json:"puffs_max"`
 	Flavors     patch.Field[[]string] `json:"flavors"`
 	PriceCents  patch.Field[int64]    `json:"price_cents"`
@@ -73,6 +84,7 @@ type WakaModel struct {
 	Status      string         `gorm:"not null;default:hidden;index"`
 	Description *string        `gorm:""`
 	PhotoKey    *string        `gorm:""`
+	Tag         datatypes.JSON `gorm:"type:jsonb"` // JSON slice
 	PuffsMax    int            `gorm:"not null"`
 	Flavors     datatypes.JSON `gorm:"not null"` // JSON slice
 	PriceCents  *int64         `gorm:""`
