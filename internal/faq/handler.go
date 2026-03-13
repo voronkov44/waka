@@ -35,12 +35,12 @@ func NewFaqHandler(router *http.ServeMux, deps HandlerDeps) {
 	router.Handle("GET /api/admin/faq/articles/{id}", middleware.RequireAdmin(handler.AdminGetArticle(), deps.JWTSecret))
 
 	// admin write
-	router.Handle("POST /api/faq/topics", middleware.RequireAdmin(handler.CreateTopic(), deps.JWTSecret))
-	router.Handle("PATCH /api/faq/topics/{id}", middleware.RequireAdmin(handler.UpdateTopic(), deps.JWTSecret))
+	router.Handle("POST /api/admin/faq/topics", middleware.RequireAdmin(handler.CreateTopic(), deps.JWTSecret))
+	router.Handle("PATCH /api/admin/faq/topics/{id}", middleware.RequireAdmin(handler.UpdateTopic(), deps.JWTSecret))
 
-	router.Handle("POST /api/faq/articles", middleware.RequireAdmin(handler.CreateArticle(), deps.JWTSecret))
-	router.Handle("PATCH /api/faq/articles/{id}", middleware.RequireAdmin(handler.UpdateArticle(), deps.JWTSecret))
-	router.Handle("PUT /api/faq/articles/{id}/blocks", middleware.RequireAdmin(handler.PutBlocks(), deps.JWTSecret))
+	router.Handle("POST /api/admin/faq/articles", middleware.RequireAdmin(handler.CreateArticle(), deps.JWTSecret))
+	router.Handle("PATCH /api/admin/faq/articles/{id}", middleware.RequireAdmin(handler.UpdateArticle(), deps.JWTSecret))
+	router.Handle("PUT /api/admin/faq/articles/{id}/blocks", middleware.RequireAdmin(handler.PutBlocks(), deps.JWTSecret))
 
 	router.Handle("POST /api/admin/faq/articles/{id}/blocks", middleware.RequireAdmin(handler.CreateBlock(), deps.JWTSecret))
 	router.Handle("PATCH /api/admin/faq/blocks/{id}", middleware.RequireAdmin(handler.UpdateBlock(), deps.JWTSecret))
