@@ -3,6 +3,7 @@ package faq
 import (
 	"net/http"
 	"rest_waka/pkg/httpx"
+	"rest_waka/pkg/middleware"
 	"rest_waka/pkg/req"
 	"rest_waka/pkg/res"
 	"strconv"
@@ -10,7 +11,8 @@ import (
 )
 
 type HandlerDeps struct {
-	Service Service
+	Service   Service
+	JWTSecret string
 }
 
 type Handler struct {
@@ -27,22 +29,22 @@ func NewFaqHandler(router *http.ServeMux, deps HandlerDeps) {
 	router.HandleFunc("GET /api/faq/search", handler.Search())
 
 	// admin read
-	router.HandleFunc("GET /api/admin/faq/topics", handler.AdminListTopics())
-	router.HandleFunc("GET /api/admin/faq/topics/{topicID}/articles", handler.AdminListArticlesByTopic())
-	router.HandleFunc("GET /api/admin/faq/articles", handler.AdminListArticles())
-	router.HandleFunc("GET /api/admin/faq/articles/{id}", handler.AdminGetArticle())
+	router.Handle("GET /api/admin/faq/topics", middleware.RequireAdmin(handler.AdminListTopics(), deps.JWTSecret))
+	router.Handle("GET /api/admin/faq/topics/{topicID}/articles", middleware.RequireAdmin(handler.AdminListArticlesByTopic(), deps.JWTSecret))
+	router.Handle("GET /api/admin/faq/articles", middleware.RequireAdmin(handler.AdminListArticles(), deps.JWTSecret))
+	router.Handle("GET /api/admin/faq/articles/{id}", middleware.RequireAdmin(handler.AdminGetArticle(), deps.JWTSecret))
 
 	// admin write
-	router.HandleFunc("POST /api/faq/topics", handler.CreateTopic())
-	router.HandleFunc("PATCH /api/faq/topics/{id}", handler.UpdateTopic())
+	router.Handle("POST /api/faq/topics", middleware.RequireAdmin(handler.CreateTopic(), deps.JWTSecret))
+	router.Handle("PATCH /api/faq/topics/{id}", middleware.RequireAdmin(handler.UpdateTopic(), deps.JWTSecret))
 
-	router.HandleFunc("POST /api/faq/articles", handler.CreateArticle())
-	router.HandleFunc("PATCH /api/faq/articles/{id}", handler.UpdateArticle())
-	router.HandleFunc("PUT /api/faq/articles/{id}/blocks", handler.PutBlocks())
+	router.Handle("POST /api/faq/articles", middleware.RequireAdmin(handler.CreateArticle(), deps.JWTSecret))
+	router.Handle("PATCH /api/faq/articles/{id}", middleware.RequireAdmin(handler.UpdateArticle(), deps.JWTSecret))
+	router.Handle("PUT /api/faq/articles/{id}/blocks", middleware.RequireAdmin(handler.PutBlocks(), deps.JWTSecret))
 
-	router.HandleFunc("POST /api/admin/faq/articles/{id}/blocks", handler.CreateBlock())
-	router.HandleFunc("PATCH /api/admin/faq/blocks/{id}", handler.UpdateBlock())
-	router.HandleFunc("DELETE /api/admin/faq/blocks/{id}", handler.DeleteBlock())
+	router.Handle("POST /api/admin/faq/articles/{id}/blocks", middleware.RequireAdmin(handler.CreateBlock(), deps.JWTSecret))
+	router.Handle("PATCH /api/admin/faq/blocks/{id}", middleware.RequireAdmin(handler.UpdateBlock(), deps.JWTSecret))
+	router.Handle("DELETE /api/admin/faq/blocks/{id}", middleware.RequireAdmin(handler.DeleteBlock(), deps.JWTSecret))
 }
 
 // public

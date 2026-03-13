@@ -117,7 +117,10 @@ func main() {
 		PresignTTL:   cfg.S3.PresignTTL,
 	})
 
-	faq.NewFaqHandler(router, faq.HandlerDeps{Service: faqService})
+	faq.NewFaqHandler(router, faq.HandlerDeps{
+		Service:   faqService,
+		JWTSecret: cfg.Auth.JWTSecret,
+	})
 
 	// Middlewares
 	stack := middleware.Chain(
