@@ -10,8 +10,10 @@ import (
 )
 
 type AuthConfig struct {
-	JWTSecret string        `yaml:"jwt_secret" env:"AUTH_JWT_SECRET" env-required:"true"`
-	TokenTTL  time.Duration `yaml:"token_ttl" env:"AUTH_TOKEN_TTL" env-default:"24h"`
+	JWTSecret     string        `yaml:"jwt_secret" env:"AUTH_JWT_SECRET" env-required:"true"`
+	TokenTTL      time.Duration `yaml:"token_ttl" env:"AUTH_TOKEN_TTL" env-default:"24h"`
+	AdminName     string        `yaml:"admin_name" env:"AUTH_ADMIN_NAME" env-required:"true"`
+	AdminPassword string        `yaml:"admin_password" env:"AUTH_ADMIN_PASSWORD" env-required:"true"`
 }
 
 type HTTPConfig struct {

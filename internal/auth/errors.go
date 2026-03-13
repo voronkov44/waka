@@ -3,6 +3,7 @@ package auth
 import "errors"
 
 var (
-	ErrNotFound        = errors.New("not found")
 	ErrInvalidArgument = errors.New("invalid argument")
+	ErrNotFound        = errors.New("not found")
+	ErrUnauthorized    = errors.New("unauthorized")
 )

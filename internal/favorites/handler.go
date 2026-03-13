@@ -59,7 +59,7 @@ func (handler *Handler) Add() http.HandlerFunc {
 			return
 		}
 
-		if err := handler.svc.Add(r.Context(), uint64(uid), modelID); err != nil {
+		if err := handler.svc.Add(r.Context(), uid, modelID); err != nil {
 			writeFavErr(w, err)
 			return
 		}
@@ -82,7 +82,7 @@ func (handler *Handler) Remove() http.HandlerFunc {
 			return
 		}
 
-		if err := handler.svc.Remove(r.Context(), uint64(uid), modelID); err != nil {
+		if err := handler.svc.Remove(r.Context(), uid, modelID); err != nil {
 			writeFavErr(w, err)
 			return
 		}
@@ -102,7 +102,7 @@ func (handler *Handler) List() http.HandlerFunc {
 		limit := httpx.QueryInt(r, "limit", 50)
 		offset := httpx.QueryInt(r, "offset", 0)
 
-		data, err := handler.svc.List(r.Context(), uint64(uid), limit, offset)
+		data, err := handler.svc.List(r.Context(), uid, limit, offset)
 		if err != nil {
 			writeFavErr(w, err)
 			return

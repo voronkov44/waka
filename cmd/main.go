@@ -73,7 +73,13 @@ func main() {
 
 	// service
 	modelsService := models.NewService(modelsRepo)
-	authService, err := auth.NewService(authRepo, cfg.Auth.JWTSecret, cfg.Auth.TokenTTL)
+	authService, err := auth.NewService(
+		authRepo,
+		cfg.Auth.JWTSecret,
+		cfg.Auth.TokenTTL,
+		cfg.Auth.AdminName,
+		cfg.Auth.AdminPassword,
+	)
 	if err != nil {
 		log.Error("Failed to create auth service", "error", err)
 		os.Exit(1)
