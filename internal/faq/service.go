@@ -25,9 +25,11 @@ type Service interface {
 	// admin write
 	CreateTopic(ctx context.Context, req CreateTopicRequest) (Topic, error)
 	UpdateTopic(ctx context.Context, id uint64, req UpdateTopicRequest) (Topic, error)
+	DeleteTopic(ctx context.Context, id uint64) error
 
 	CreateArticle(ctx context.Context, req CreateArticleRequest) (Article, error)
 	UpdateArticle(ctx context.Context, id uint64, req UpdateArticleRequest) (Article, error)
+	DeleteArticle(ctx context.Context, id uint64) error
 
 	PutBlocks(ctx context.Context, articleID uint64, req PutBlocksRequest) ([]Block, error)
 	CreateBlock(ctx context.Context, articleID uint64, req CreateBlockRequest) (Block, error)
@@ -204,6 +206,13 @@ func (s *service) UpdateTopic(ctx context.Context, id uint64, req UpdateTopicReq
 	return s.repo.UpdateTopic(ctx, id, req)
 }
 
+func (s *service) DeleteTopic(ctx context.Context, id uint64) error {
+	if id == 0 {
+		return ErrInvalidArgument
+	}
+	return s.repo.DeleteTopic(ctx, id)
+}
+
 func (s *service) CreateArticle(ctx context.Context, req CreateArticleRequest) (Article, error) {
 	if req.TopicID == 0 {
 		return Article{}, ErrInvalidArgument
@@ -298,6 +307,13 @@ func (s *service) UpdateArticle(ctx context.Context, id uint64, req UpdateArticl
 	}
 
 	return s.repo.UpdateArticle(ctx, id, patch)
+}
+
+func (s *service) DeleteArticle(ctx context.Context, id uint64) error {
+	if id == 0 {
+		return ErrInvalidArgument
+	}
+	return s.repo.DeleteArticle(ctx, id)
 }
 
 func (s *service) PutBlocks(ctx context.Context, articleID uint64, req PutBlocksRequest) ([]Block, error) {

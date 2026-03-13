@@ -37,9 +37,11 @@ func NewFaqHandler(router *http.ServeMux, deps HandlerDeps) {
 	// admin write
 	router.Handle("POST /api/admin/faq/topics", middleware.RequireAdmin(handler.CreateTopic(), deps.JWTSecret))
 	router.Handle("PATCH /api/admin/faq/topics/{id}", middleware.RequireAdmin(handler.UpdateTopic(), deps.JWTSecret))
+	router.Handle("DELETE /api/admin/faq/topics/{id}", middleware.RequireAdmin(handler.DeleteTopic(), deps.JWTSecret))
 
 	router.Handle("POST /api/admin/faq/articles", middleware.RequireAdmin(handler.CreateArticle(), deps.JWTSecret))
 	router.Handle("PATCH /api/admin/faq/articles/{id}", middleware.RequireAdmin(handler.UpdateArticle(), deps.JWTSecret))
+	router.Handle("DELETE /api/admin/faq/articles/{id}", middleware.RequireAdmin(handler.DeleteArticle(), deps.JWTSecret))
 	router.Handle("PUT /api/admin/faq/articles/{id}/blocks", middleware.RequireAdmin(handler.PutBlocks(), deps.JWTSecret))
 
 	router.Handle("POST /api/admin/faq/articles/{id}/blocks", middleware.RequireAdmin(handler.CreateBlock(), deps.JWTSecret))
@@ -262,6 +264,23 @@ func (handler *Handler) UpdateTopic() http.HandlerFunc {
 	}
 }
 
+func (handler *Handler) DeleteTopic() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := httpx.PathUint64(r, "id")
+		if err != nil {
+			res.Json(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+
+		if err := handler.svc.DeleteTopic(r.Context(), id); err != nil {
+			writeFaqErr(w, err)
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
 func (handler *Handler) CreateArticle() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := req.Decode[CreateArticleRequest](r.Body)
@@ -299,6 +318,23 @@ func (handler *Handler) UpdateArticle() http.HandlerFunc {
 			return
 		}
 		res.Json(w, data, http.StatusOK)
+	}
+}
+
+func (handler *Handler) DeleteArticle() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := httpx.PathUint64(r, "id")
+		if err != nil {
+			res.Json(w, "invalid id", http.StatusBadRequest)
+			return
+		}
+
+		if err := handler.svc.DeleteArticle(r.Context(), id); err != nil {
+			writeFaqErr(w, err)
+			return
+		}
+
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 

@@ -16,6 +16,7 @@ type Repository interface {
 	GetTopic(ctx context.Context, id uint64) (Topic, error)
 	CreateTopic(ctx context.Context, t *Topic) error
 	UpdateTopic(ctx context.Context, id uint64, patch UpdateTopicRequest) (Topic, error)
+	DeleteTopic(ctx context.Context, id uint64) error
 
 	// public articles
 	ListArticlesByTopic(ctx context.Context, topicID uint64, channel string) ([]ArticleSummary, error)
@@ -28,6 +29,7 @@ type Repository interface {
 
 	CreateArticle(ctx context.Context, a *Article) error
 	UpdateArticle(ctx context.Context, id uint64, patch UpdateArticleRequest) (Article, error)
+	DeleteArticle(ctx context.Context, id uint64) error
 
 	ReplaceBlocks(ctx context.Context, articleID uint64, blocks []Block) ([]Block, error)
 	CreateBlock(ctx context.Context, b *Block) error
@@ -101,6 +103,32 @@ func (r *GormRepository) UpdateTopic(ctx context.Context, id uint64, patch Updat
 		return Topic{}, err
 	}
 	return t, nil
+}
+
+func (r *GormRepository) DeleteTopic(ctx context.Context, id uint64) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var t Topic
+		if err := tx.First(&t, "id = ?", id).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrNotFound
+			}
+			return err
+		}
+
+		var count int64
+		if err := tx.Model(&Article{}).Where("topic_id = ?", id).Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return ErrConflict
+		}
+
+		if err := tx.Delete(&Topic{}, "id = ?", id).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 func (r *GormRepository) ListArticlesByTopic(ctx context.Context, topicID uint64, channel string) ([]ArticleSummary, error) {
@@ -292,6 +320,28 @@ func (r *GormRepository) UpdateArticle(ctx context.Context, id uint64, patch Upd
 		return Article{}, err
 	}
 	return a, nil
+}
+
+func (r *GormRepository) DeleteArticle(ctx context.Context, id uint64) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var a Article
+		if err := tx.First(&a, "id = ?", id).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrNotFound
+			}
+			return err
+		}
+
+		if err := tx.Where("article_id = ?", id).Delete(&Block{}).Error; err != nil {
+			return err
+		}
+
+		if err := tx.Delete(&Article{}, "id = ?", id).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 func (r *GormRepository) ReplaceBlocks(ctx context.Context, articleID uint64, blocks []Block) ([]Block, error) {
