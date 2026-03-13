@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"path"
 	"rest_waka/pkg/httpx"
+	"rest_waka/pkg/middleware"
 	"rest_waka/pkg/photourl"
 	"rest_waka/pkg/randHex"
 	"rest_waka/pkg/req"
@@ -40,6 +41,7 @@ type photoStore interface {
 
 type HandlerDeps struct {
 	Service      modelsService
+	JWTSecret    string
 	S3           photoStore
 	UsePresigned bool
 	PresignTTL   time.Duration
@@ -59,21 +61,22 @@ func NewModelsHandler(router *http.ServeMux, deps HandlerDeps) {
 		presignTTL:   deps.PresignTTL,
 	}
 
-	router.HandleFunc("POST /api/models", handler.CreateModels())
-	router.HandleFunc("GET /api/models", handler.ListModels())
-	router.HandleFunc("GET /api/models/{id}", handler.GetModels())
-	router.HandleFunc("PATCH /api/models/{id}", handler.UpdateModels())
-	router.HandleFunc("DELETE /api/models/{id}", handler.DeleteModels())
+	// admin
+	router.Handle("POST /api/models", middleware.RequireAdmin(handler.CreateModels(), deps.JWTSecret))
+	router.Handle("GET /api/models", middleware.RequireAdmin(handler.ListModels(), deps.JWTSecret))
+	router.Handle("GET /api/models/{id}", middleware.RequireAdmin(handler.GetModels(), deps.JWTSecret))
+	router.Handle("PATCH /api/models/{id}", middleware.RequireAdmin(handler.UpdateModels(), deps.JWTSecret))
+	router.Handle("DELETE /api/models/{id}", middleware.RequireAdmin(handler.DeleteModels(), deps.JWTSecret))
 
-	// flavors pen
-	router.HandleFunc("POST /api/models/{id}/flavors", handler.AddFlavor())
-	router.HandleFunc("DELETE /api/models/{id}/flavors", handler.RemoveFlavor())
+	// admin: flavors pen
+	router.Handle("POST /api/models/{id}/flavors", middleware.RequireAdmin(handler.AddFlavor(), deps.JWTSecret))
+	router.Handle("DELETE /api/models/{id}/flavors", middleware.RequireAdmin(handler.RemoveFlavor(), deps.JWTSecret))
 
-	//	upload photo
-	router.HandleFunc("POST /api/models/{id}/photo", handler.UploadPhoto())
-	router.HandleFunc("DELETE /api/models/{id}/photo", handler.DeletePhoto())
+	// admin: upload photo
+	router.Handle("POST /api/models/{id}/photo", middleware.RequireAdmin(handler.UploadPhoto(), deps.JWTSecret))
+	router.Handle("DELETE /api/models/{id}/photo", middleware.RequireAdmin(handler.DeletePhoto(), deps.JWTSecret))
 
-	// public pen
+	// public catalog models pen
 	router.HandleFunc("GET /api/catalog/models", handler.ActiveListModels())
 	router.HandleFunc("GET /api/catalog/models/{id}", handler.ActiveGetModels())
 }

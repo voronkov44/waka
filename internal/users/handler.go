@@ -3,11 +3,13 @@ package users
 import (
 	"net/http"
 	"rest_waka/pkg/httpx"
+	"rest_waka/pkg/middleware"
 	"rest_waka/pkg/res"
 )
 
 type HandlerDeps struct {
-	Service *Service
+	Service   *Service
+	JWTSecret string
 }
 
 type Handler struct {
@@ -17,8 +19,8 @@ type Handler struct {
 func NewUsersHandler(router *http.ServeMux, deps HandlerDeps) {
 	handler := &Handler{svc: deps.Service}
 
-	router.HandleFunc("GET /api/users", handler.List())
-	router.HandleFunc("GET /api/users/{id}", handler.Get())
+	router.Handle("GET /api/users", middleware.RequireAdmin(handler.List(), deps.JWTSecret))
+	router.Handle("GET /api/users/{id}", middleware.RequireAdmin(handler.Get(), deps.JWTSecret))
 }
 
 func (handler *Handler) List() http.HandlerFunc {

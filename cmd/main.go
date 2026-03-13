@@ -93,6 +93,7 @@ func main() {
 
 	models.NewModelsHandler(router, models.HandlerDeps{
 		Service:      modelsService,
+		JWTSecret:    cfg.Auth.JWTSecret,
 		S3:           minio,
 		UsePresigned: cfg.S3.UsePresigned,
 		PresignTTL:   cfg.S3.PresignTTL,
@@ -103,7 +104,10 @@ func main() {
 		JWTSecret: cfg.Auth.JWTSecret,
 	})
 
-	users.NewUsersHandler(router, users.HandlerDeps{Service: usersService})
+	users.NewUsersHandler(router, users.HandlerDeps{
+		Service:   usersService,
+		JWTSecret: cfg.Auth.JWTSecret,
+	})
 
 	favorites.NewFavoritesHandler(router, favorites.HandlerDeps{
 		Service:      favoritesService,
