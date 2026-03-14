@@ -24,11 +24,17 @@ function joinURL(path: string): string {
     return path;
   }
 
-  if (path.startsWith('/')) {
-    return `${API_BASE_URL}${path}`;
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+  if (!API_BASE_URL) {
+    return normalizedPath;
   }
 
-  return `${API_BASE_URL}/${path}`;
+  if (API_BASE_URL.endsWith('/api') && normalizedPath.startsWith('/api/')) {
+    return `${API_BASE_URL}${normalizedPath.slice('/api'.length)}`;
+  }
+
+  return `${API_BASE_URL}${normalizedPath}`;
 }
 
 function toErrorMessage(payload: unknown, fallback: string): string {

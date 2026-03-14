@@ -4,7 +4,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useFavorites } from '../hooks/useFavorites';
 import { useTheme } from '../hooks/useTheme';
 import { useTelegramUser } from '../hooks/useTelegramUser';
-import { WakaIcon } from '../components/waka-brand';
+import { WakaFullLogo, WakaIcon } from '../components/waka-brand';
 import { ImageWithFallback } from '../components/image-with-fallback';
 import { useAuth } from '../hooks/useAuth';
 
@@ -42,7 +42,7 @@ export function Profile() {
   const { favorites } = useFavorites();
   const { theme, toggleTheme } = useTheme();
   const { profile, hasTelegramContext } = useTelegramUser();
-  const { user, isLoading, isAuthenticated, error } = useAuth();
+  const { user, isLoading, isAuthenticated, error, debug } = useAuth();
 
   return (
     <div className="min-h-screen pb-32">
@@ -66,7 +66,7 @@ export function Profile() {
               <p className="truncate text-[11px] font-bold uppercase tracking-[0.1em] text-foreground/70">{profile.handle}</p>
               {user && (
                 <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground mt-2">
-                  Backend user ID: {user.id}
+                  Backend user ID: {user.id} · TG ID: {user.tg_id}
                 </p>
               )}
             </div>
@@ -79,6 +79,19 @@ export function Profile() {
           <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
             {error}
           </div>
+        </div>
+      )}
+
+      {import.meta.env.DEV && debug && (
+        <div className="px-6 mb-8">
+          <details className="rounded-2xl border border-border/50 bg-card p-4">
+            <summary className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground cursor-pointer">
+              Telegram auth debug
+            </summary>
+            <pre className="mt-3 overflow-auto text-[11px] leading-relaxed text-muted-foreground">
+              {JSON.stringify(debug, null, 2)}
+            </pre>
+          </details>
         </div>
       )}
 
@@ -205,7 +218,7 @@ export function Profile() {
         </div>
 
         <div className="mb-8 mt-12 text-center">
-          <WakaIcon size={92} className="mx-auto mb-4 opacity-20" />
+          <WakaFullLogo height={50} className="mx-auto mb-4 opacity-20" />
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Waka OS</p>
           <p className="mt-1.5 text-[9px] font-bold tracking-[0.1em] text-muted-foreground/50">Version 1.0.0</p>
         </div>

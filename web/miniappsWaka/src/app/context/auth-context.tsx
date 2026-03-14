@@ -2,8 +2,17 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { apiClient } from '../api/client';
 import { ApiError } from '../api/http';
 import { clearAuthToken, readAuthToken, writeAuthToken } from '../api/auth-storage';
+import { bootstrapTelegramContext, type TelegramBootstrapDiagnostics } from '../telegram/bootstrap';
 import type { MeResponseDTO, TelegramAuthRequestDTO } from '../api/types';
 import type { TelegramUser } from '../types/telegram';
+
+export interface AuthDebugState extends TelegramBootstrapDiagnostics {
+  usedStoredToken: boolean;
+  authRequestSent: boolean;
+  authSucceeded: boolean;
+  tokenStored: boolean;
+  fallbackReason: string | null;
+}
 
 interface AuthContextValue {
   token: string | null;
@@ -13,13 +22,23 @@ interface AuthContextValue {
   isLoading: boolean;
   isAuthenticated: boolean;
   error: string | null;
+  debug: AuthDebugState | null;
   refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function readTelegramUser(): TelegramUser | null {
-  return window.Telegram?.WebApp?.initDataUnsafe?.user ?? null;
+function emptyBootstrapDiagnostics(): TelegramBootstrapDiagnostics {
+  return {
+    webAppDetected: false,
+    initDataPresent: false,
+    initDataSource: 'none',
+    userPresent: false,
+    userSource: 'none',
+    attempts: 0,
+    readyCalled: false,
+    expandCalled: false,
+  };
 }
 
 function mapTelegramUserToAuthPayload(user: TelegramUser): TelegramAuthRequestDTO {
@@ -43,6 +62,13 @@ async function loadCurrentUserOrNull(): Promise<MeResponseDTO | null> {
   }
 }
 
+function publishDebug(debug: AuthDebugState) {
+  window.__wakaTelegramBootstrapDebug = debug;
+  if (import.meta.env.DEV) {
+    console.debug('[waka:tma] auth diagnostics', debug);
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<MeResponseDTO | null>(null);
@@ -50,6 +76,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [hasTelegramContext, setHasTelegramContext] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [debug, setDebug] = useState<AuthDebugState | null>(null);
 
   const refreshUser = useCallback(async () => {
     if (!readAuthToken()) {
@@ -75,49 +102,101 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(true);
       setError(null);
 
-      const hasContext = Boolean(window.Telegram?.WebApp);
-      const tgUser = readTelegramUser();
-
-      if (!cancelled) {
-        setHasTelegramContext(hasContext);
-        setTelegramUser(tgUser);
+      let telegram: Awaited<ReturnType<typeof bootstrapTelegramContext>> | null = null;
+      try {
+        telegram = await bootstrapTelegramContext();
+      } catch (err) {
+        const diagnostics: AuthDebugState = {
+          ...emptyBootstrapDiagnostics(),
+          usedStoredToken: false,
+          authRequestSent: false,
+          authSucceeded: false,
+          tokenStored: false,
+          fallbackReason: 'telegram_bootstrap_failed',
+        };
+        if (!cancelled) {
+          setHasTelegramContext(false);
+          setTelegramUser(null);
+          setDebug(diagnostics);
+          publishDebug(diagnostics);
+          setError(err instanceof Error ? err.message : 'Telegram bootstrap failed');
+          setIsLoading(false);
+        }
+        return;
       }
+
+      if (cancelled) {
+        return;
+      }
+
+      if (!telegram) {
+        setIsLoading(false);
+        return;
+      }
+
+      setHasTelegramContext(telegram.hasTelegramContext);
+      setTelegramUser(telegram.user);
+
+      const diagnostics: AuthDebugState = {
+        ...telegram.diagnostics,
+        usedStoredToken: false,
+        authRequestSent: false,
+        authSucceeded: false,
+        tokenStored: false,
+        fallbackReason: null,
+      };
+
+      let pendingError: string | null = null;
 
       const existingToken = readAuthToken();
       if (existingToken) {
+        diagnostics.usedStoredToken = true;
         setToken(existingToken);
+        if (import.meta.env.DEV) {
+          console.debug('[waka:tma] validating stored token via /api/auth/me');
+        }
+
         try {
           const me = await loadCurrentUserOrNull();
           if (cancelled) {
             return;
           }
+
           if (me) {
             setUser(me);
-            setIsLoading(false);
-            return;
+            diagnostics.authSucceeded = true;
+          } else {
+            clearAuthToken();
+            setToken(null);
+            setUser(null);
+            diagnostics.fallbackReason = 'stored_token_invalid_or_expired';
           }
+        } catch (err) {
           clearAuthToken();
           setToken(null);
           setUser(null);
-        } catch (err) {
-          if (cancelled) {
-            return;
-          }
-          setError(err instanceof Error ? err.message : 'Failed to authorize');
-          setIsLoading(false);
-          return;
+          diagnostics.fallbackReason = 'stored_token_me_request_failed';
+          pendingError = err instanceof Error ? err.message : 'Stored token validation failed';
         }
       }
 
-      if (tgUser) {
+      if (!diagnostics.authSucceeded && telegram.user) {
+        diagnostics.authRequestSent = true;
+        if (import.meta.env.DEV) {
+          console.debug('[waka:tma] sending Telegram auth request to /api/auth/telegram');
+        }
         try {
-          const authResponse = await apiClient.loginTelegram(mapTelegramUserToAuthPayload(tgUser));
+          const authResponse = await apiClient.loginTelegram(mapTelegramUserToAuthPayload(telegram.user));
           if (cancelled) {
             return;
           }
 
           writeAuthToken(authResponse.token);
+          diagnostics.tokenStored = true;
           setToken(authResponse.token);
+          if (import.meta.env.DEV) {
+            console.debug('[waka:tma] token stored, fetching /api/auth/me');
+          }
 
           const me = await loadCurrentUserOrNull();
           if (cancelled) {
@@ -126,23 +205,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           if (me) {
             setUser(me);
+            diagnostics.authSucceeded = true;
+            diagnostics.fallbackReason = null;
+            pendingError = null;
           } else {
             clearAuthToken();
             setToken(null);
             setUser(null);
+            diagnostics.fallbackReason = 'telegram_auth_succeeded_but_me_missing';
+            pendingError = pendingError ?? 'Telegram login succeeded but user profile could not be loaded';
           }
         } catch (err) {
-          if (cancelled) {
-            return;
-          }
           clearAuthToken();
           setToken(null);
           setUser(null);
-          setError(err instanceof Error ? err.message : 'Failed to authorize');
+          diagnostics.fallbackReason = 'telegram_auth_request_failed';
+          pendingError = err instanceof Error ? err.message : 'Telegram authentication failed';
         }
       }
 
+      if (!diagnostics.authSucceeded && !telegram.user && !diagnostics.fallbackReason) {
+        diagnostics.fallbackReason = 'telegram_user_not_available';
+      }
+
       if (!cancelled) {
+        setDebug(diagnostics);
+        publishDebug(diagnostics);
+        setError(diagnostics.authSucceeded ? null : pendingError);
         setIsLoading(false);
       }
     };
@@ -163,9 +252,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       isAuthenticated: Boolean(token && user),
       error,
+      debug,
       refreshUser,
     }),
-    [token, user, telegramUser, hasTelegramContext, isLoading, error, refreshUser],
+    [token, user, telegramUser, hasTelegramContext, isLoading, error, debug, refreshUser],
   );
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;

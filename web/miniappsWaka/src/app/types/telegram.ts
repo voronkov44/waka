@@ -10,6 +10,7 @@ export interface TelegramUser {
 
 export interface TelegramWebApp {
   colorScheme?: 'light' | 'dark';
+  initData?: string;
   initDataUnsafe?: {
     user?: TelegramUser;
   };
@@ -22,5 +23,6 @@ declare global {
     Telegram?: {
       WebApp?: TelegramWebApp;
     };
+    __wakaTelegramBootstrapDebug?: unknown;
   }
 }

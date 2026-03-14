@@ -19,9 +19,9 @@ export function WakaIcon({ className = '', size = 48 }: WakaIconProps) {
       style={{ width: size, height: size }}
     >
       <img
-        src={brandAssets.logoWide}
+        src={brandAssets.logoIcon}
         alt="Waka"
-        className={`h-full w-auto max-w-none object-contain ${THEME_ADAPTIVE_CLASS}`}
+        className={`h-full w-full object-contain ${THEME_ADAPTIVE_CLASS}`}
       />
     </div>
   );
@@ -30,7 +30,7 @@ export function WakaIcon({ className = '', size = 48 }: WakaIconProps) {
 export function WakaFullLogo({ className = '', height = 48 }: WakaFullLogoProps) {
   return (
     <img
-      src={brandAssets.logoWide}
+      src={brandAssets.logoBig}
       alt="Waka"
       style={{ height }}
       className={`h-auto w-auto max-w-full object-contain object-left ${THEME_ADAPTIVE_CLASS} ${className}`}

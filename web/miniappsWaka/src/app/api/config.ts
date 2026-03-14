@@ -1,5 +1,3 @@
-const DEFAULT_API_BASE_URL = 'http://localhost:28080';
-
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, '');
 }
@@ -7,7 +5,9 @@ function trimTrailingSlash(value: string): string {
 function resolveApiBaseURL(): string {
   const value = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim();
   if (!value) {
-    return DEFAULT_API_BASE_URL;
+    // Default to same-origin API calls (e.g. /api/*) so Telegram/ngrok
+    // clients do not attempt loopback calls to localhost.
+    return '';
   }
   return trimTrailingSlash(value);
 }
