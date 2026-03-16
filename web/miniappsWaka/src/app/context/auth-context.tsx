@@ -180,7 +180,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      if (!diagnostics.authSucceeded && telegram.user) {
+      const hadStoredSession = diagnostics.authSucceeded;
+
+      if (telegram.user) {
         diagnostics.authRequestSent = true;
         if (import.meta.env.DEV) {
           console.debug('[waka:tma] sending Telegram auth request to /api/auth/telegram');
@@ -208,6 +210,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             diagnostics.authSucceeded = true;
             diagnostics.fallbackReason = null;
             pendingError = null;
+          } else if (hadStoredSession && existingToken) {
+            writeAuthToken(existingToken);
+            setToken(existingToken);
+            diagnostics.authSucceeded = true;
+            diagnostics.fallbackReason = 'telegram_refresh_me_failed_used_stored_session';
+            pendingError = null;
           } else {
             clearAuthToken();
             setToken(null);
@@ -216,11 +224,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             pendingError = pendingError ?? 'Telegram login succeeded but user profile could not be loaded';
           }
         } catch (err) {
-          clearAuthToken();
-          setToken(null);
-          setUser(null);
-          diagnostics.fallbackReason = 'telegram_auth_request_failed';
-          pendingError = err instanceof Error ? err.message : 'Telegram authentication failed';
+          if (hadStoredSession && existingToken) {
+            writeAuthToken(existingToken);
+            setToken(existingToken);
+            diagnostics.authSucceeded = true;
+            diagnostics.fallbackReason = 'telegram_refresh_request_failed_used_stored_session';
+            pendingError = null;
+          } else {
+            clearAuthToken();
+            setToken(null);
+            setUser(null);
+            diagnostics.fallbackReason = 'telegram_auth_request_failed';
+            pendingError = err instanceof Error ? err.message : 'Telegram authentication failed';
+          }
         }
       }
 

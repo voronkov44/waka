@@ -129,11 +129,15 @@ export function Home() {
                   </div>
                 </div>
                 <div className="relative p-7 pt-5 bg-card z-20 border-t border-border/40">
-                  <div className="flex justify-between items-baseline mb-3">
-                    <h3 className="text-2xl font-bold tracking-tighter truncate pr-2 text-foreground">{product.name}</h3>
-                    <p className="text-lg font-semibold tracking-tight text-foreground shrink-0">
-                      {product.priceCents === null ? '—' : `$${(product.priceCents / 100).toFixed(2)}`}
-                    </p>
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <h3 className="pr-2 text-2xl font-bold tracking-tighter leading-tight text-foreground break-words">
+                      {product.name}
+                    </h3>
+                    {product.priceCents !== null && (
+                      <p className="text-lg font-semibold tracking-tight text-foreground shrink-0">
+                        {(product.priceCents / 100).toFixed(2)} ₽
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 mt-5">
                     <span className="text-[9px] font-bold tracking-[0.2em] uppercase text-muted-foreground">

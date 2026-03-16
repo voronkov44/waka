@@ -43,7 +43,7 @@ export function Catalog() {
         </div>
 
         <div className="px-6 pb-5">
-          <div className="flex gap-2.5 overflow-x-auto scrollbar-hide py-1">
+          <div className="flex gap-2.5 overflow-x-auto scrollbar-hide py-1 pl-1 pr-2">
             <FilterChip label="All" active={puffFilter === 'all'} onClick={() => setPuffFilter('all')} />
             <FilterChip
               label="Up to 10K"
@@ -70,7 +70,7 @@ export function Catalog() {
         )}
 
         {!isLoading && !error && filteredProducts.length > 0 && (
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col gap-5">
             {filteredProducts.map((product) => (
               <ProductCard
                 key={product.id}

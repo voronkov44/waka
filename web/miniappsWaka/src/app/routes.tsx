@@ -8,6 +8,8 @@ import { FAQTopics } from './screens/faq-topics';
 import { FAQArticles } from './screens/faq-articles';
 import { FAQArticleDetail } from './screens/faq-article-detail';
 import { Profile } from './screens/profile';
+import { TermsOfService } from './screens/terms-of-service';
+import { PrivacyPolicy } from './screens/privacy-policy';
 import { NotFound } from './screens/not-found';
 
 export const router = createBrowserRouter([
@@ -23,6 +25,8 @@ export const router = createBrowserRouter([
       { path: 'faq/:topicId', Component: FAQArticles },
       { path: 'faq/:topicId/:articleId', Component: FAQArticleDetail },
       { path: 'profile', Component: Profile },
+      { path: 'legal/terms', Component: TermsOfService },
+      { path: 'legal/privacy', Component: PrivacyPolicy },
       { path: '*', Component: NotFound },
     ],
   },

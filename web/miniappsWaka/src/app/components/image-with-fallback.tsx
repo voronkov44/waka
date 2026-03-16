@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ImgHTMLAttributes } from 'react';
 
 const ERROR_IMG_SRC =
@@ -7,6 +7,10 @@ const ERROR_IMG_SRC =
 export function ImageWithFallback(props: ImgHTMLAttributes<HTMLImageElement>) {
   const [didError, setDidError] = useState(false);
   const { src, alt, style, className, onError, ...rest } = props;
+
+  useEffect(() => {
+    setDidError(false);
+  }, [src]);
 
   if (didError) {
     return (

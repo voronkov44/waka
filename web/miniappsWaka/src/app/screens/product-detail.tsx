@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
-import { ChevronLeft, Heart, ExternalLink, Zap } from 'lucide-react';
+import { ChevronLeft, Heart, Zap } from 'lucide-react';
 import { useFavorites } from '../hooks/useFavorites';
 import { FlavorChip } from '../components/flavor-chip';
 import { ProductStatusBadge } from '../components/product-status-badge';
@@ -142,18 +142,9 @@ export function ProductDetail() {
 
         <div className="bg-card border border-border/50 rounded-[32px] p-8 mb-10 shadow-sm relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-foreground/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-          <div className="flex items-center justify-between relative z-10">
-            <div>
-              <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground mb-2">Price</p>
-              <p className="text-4xl font-extrabold tracking-tighter text-foreground">{formatPrice(product.priceCents)}</p>
-            </div>
-            <button
-              type="button"
-              className="px-8 py-4 bg-foreground text-background rounded-full text-[11px] font-bold tracking-[0.2em] uppercase hover:scale-105 transition-all duration-500 shadow-md flex items-center gap-3"
-            >
-              Store
-              <ExternalLink className="w-4 h-4" />
-            </button>
+          <div className="relative z-10">
+            <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground mb-2">Price</p>
+            <p className="text-4xl font-extrabold tracking-tighter text-foreground">{formatPrice(product.priceCents)}</p>
           </div>
         </div>
 

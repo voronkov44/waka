@@ -1,6 +1,20 @@
 import { useMemo } from 'react';
 import { useAuth } from './useAuth';
 
+function withImageVersion(url: string, version: string): string {
+  if (!url || !version) {
+    return url;
+  }
+
+  const [base, hashPart] = url.split('#');
+  const [path, query = ''] = base.split('?');
+  const params = new URLSearchParams(query);
+  params.set('v', version);
+  const queryString = params.toString();
+
+  return `${path}${queryString ? `?${queryString}` : ''}${hashPart ? `#${hashPart}` : ''}`;
+}
+
 export function useTelegramUser() {
   const { user, telegramUser, hasTelegramContext, isAuthenticated } = useAuth();
 
@@ -22,11 +36,16 @@ export function useTelegramUser() {
       const fallbackName = sourceUser.username ? `@${sourceUser.username}` : `User ${sourceUser.id}`;
       const displayName = fullName || fallbackName;
       const handle = sourceUser.username ? `@${sourceUser.username}` : `ID ${sourceUser.id}`;
+      const photoUrl = isBackendProfile
+        ? user?.photo_url
+          ? withImageVersion(user.photo_url, user.updated_at)
+          : null
+        : sourceUser.photo_url ?? null;
 
       return {
         displayName,
         handle,
-        photoUrl: sourceUser.photo_url ?? null,
+        photoUrl,
         source: isBackendProfile ? 'backend' : 'telegram',
       };
     }

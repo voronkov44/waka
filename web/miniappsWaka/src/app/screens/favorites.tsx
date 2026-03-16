@@ -64,12 +64,14 @@ export function Favorites() {
 
       {favoriteProducts.length > 0 ? (
         <div className="px-6 pt-6">
-          <div className="flex flex-col gap-6">
+          <div className="flex flex-col items-center gap-4">
             {favoriteProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
                 isFavorite={isFavorite(product.id)}
+                compact
+                className="w-full max-w-[300px]"
                 onToggleFavorite={() => {
                   void toggleFavorite(product.id);
                 }}

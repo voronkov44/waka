@@ -1,4 +1,4 @@
-import { Heart, ChevronRight } from 'lucide-react';
+import { Heart } from 'lucide-react';
 import { Link } from 'react-router';
 import type { Product } from '../types/domain';
 import { ProductStatusBadge } from './product-status-badge';
@@ -7,29 +7,70 @@ interface ProductCardProps {
   product: Product;
   isFavorite: boolean;
   onToggleFavorite: () => void;
+  compact?: boolean;
+  className?: string;
 }
 
-export function ProductCard({ product, isFavorite, onToggleFavorite }: ProductCardProps) {
-  const formatPrice = (cents: number | null) => {
-    if (cents === null || Number.isNaN(cents)) {
-      return '—';
-    }
-    return `$${(cents / 100).toFixed(2)}`;
-  };
+function formatPrice(cents: number | null): string | null {
+  if (cents === null || Number.isNaN(cents)) {
+    return null;
+  }
+
+  const rubles = cents / 100;
+  const hasFraction = Math.abs(rubles % 1) > 0;
+  const formatted = new Intl.NumberFormat('ru-RU', {
+    minimumFractionDigits: hasFraction ? 2 : 0,
+    maximumFractionDigits: hasFraction ? 2 : 0,
+  }).format(rubles);
+
+  return `${formatted} ₽`;
+}
+
+export function ProductCard({
+  product,
+  isFavorite,
+  onToggleFavorite,
+  compact = false,
+  className = '',
+}: ProductCardProps) {
+  const price = formatPrice(product.priceCents);
+  const rootRadiusClass = compact ? 'rounded-[20px]' : 'rounded-[22px]';
+  const mediaPaddingClass = compact ? 'p-4' : 'p-5';
+  const badgeOffsetClass = compact ? 'left-2 top-2' : 'left-2 top-2';
+  const favoriteOffsetClass = compact ? 'right-2 top-2' : 'right-2 top-2';
+  const favoriteSizeClass = compact ? 'h-7 w-7' : 'h-7 w-7';
+  const favoriteIconClass = compact ? 'h-3.5 w-3.5' : 'h-3.5 w-3.5';
+  const contentPaddingClass = compact ? 'p-2.5 pt-2' : 'p-2.5 pt-2';
+  const titleSizeClass = compact ? 'text-[16px]' : 'text-[18px]';
+  const priceSizeClass = compact ? 'text-[13px]' : 'text-[14px]';
+  const descriptionClass = compact
+    ? 'mb-1.5 text-[12px] font-medium leading-relaxed text-muted-foreground line-clamp-1'
+    : 'mb-1.5 text-sm font-medium leading-relaxed text-muted-foreground line-clamp-2';
+  const statsGapClass = compact ? 'gap-1.5' : 'gap-1.5';
+  const statLabelClass = compact
+    ? 'mb-1 text-[8px] font-bold uppercase tracking-[0.2em] text-muted-foreground'
+    : 'mb-1.5 text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground';
+  const statValueClass = compact
+    ? 'text-[11px] font-bold tracking-tight text-foreground'
+    : 'text-[13px] font-bold tracking-tight text-foreground';
 
   return (
-    <div className="group relative bg-card rounded-[36px] overflow-hidden border border-border/40 hover:border-foreground/30 transition-all duration-500 shadow-sm hover:shadow-2xl dark:shadow-none">
+    <div
+      className={`group relative overflow-hidden border border-border/40 bg-card shadow-sm transition-all duration-500 hover:border-foreground/30 hover:shadow-2xl dark:shadow-none ${rootRadiusClass} ${className}`}
+    >
       <Link to={`/product/${product.id}`} className="block relative">
-        <div className="relative aspect-[4/5] sm:aspect-square overflow-hidden bg-gradient-to-b from-foreground/5 to-transparent flex items-center justify-center p-14">
+        <div
+          className={`relative flex aspect-[4/5] items-center justify-center overflow-hidden bg-gradient-to-b from-foreground/5 to-transparent sm:aspect-square ${mediaPaddingClass}`}
+        >
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,var(--glow-primary),transparent_70%)] pointer-events-none mix-blend-overlay" />
-          
+
           <img
             src={product.photoUrl}
             alt={product.name}
-            className="w-full h-full object-contain filter drop-shadow-2xl transition-transform duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-110"
+            className="h-full w-full object-contain filter drop-shadow-2xl transition-transform duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-110"
           />
-          
-          <div className="absolute top-6 left-6 z-10">
+
+          <div className={`absolute z-10 ${badgeOffsetClass}`}>
             <ProductStatusBadge status={product.status} tag={product.tag} />
           </div>
           <button
@@ -38,41 +79,34 @@ export function ProductCard({ product, isFavorite, onToggleFavorite }: ProductCa
               e.preventDefault();
               onToggleFavorite();
             }}
-            className={`absolute top-6 right-6 w-11 h-11 rounded-full flex items-center justify-center backdrop-blur-2xl transition-all duration-300 z-10 ${
+            className={`absolute z-10 flex items-center justify-center rounded-full backdrop-blur-2xl transition-all duration-300 ${favoriteOffsetClass} ${favoriteSizeClass} ${
               isFavorite
                 ? 'bg-foreground border border-foreground text-background shadow-lg scale-110'
                 : 'bg-background/50 border border-border/50 text-foreground hover:bg-background shadow-sm hover:scale-105'
             }`}
           >
-            <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : 'opacity-80'}`} />
+            <Heart className={`${favoriteIconClass} ${isFavorite ? 'fill-current' : 'opacity-80'}`} />
           </button>
         </div>
       </Link>
 
-      <div className="relative p-8 pt-6 bg-card z-20 border-t border-border/40">
+      <div className={`relative z-20 border-t border-border/40 bg-card ${contentPaddingClass}`}>
         <Link to={`/product/${product.id}`}>
-          <div className="flex justify-between items-baseline mb-4">
-            <h3 className="text-3xl font-bold tracking-tighter truncate pr-4 text-foreground">{product.name}</h3>
-            <span className="text-xl font-semibold tracking-tight text-foreground shrink-0">
-              {formatPrice(product.priceCents)}
-            </span>
+          <div className="mb-2 flex items-start justify-between gap-3">
+            <h3 className={`${titleSizeClass} font-bold tracking-tight leading-tight text-foreground break-words`}>{product.name}</h3>
+            {price && <span className={`shrink-0 ${priceSizeClass} font-semibold tracking-tight text-foreground`}>{price}</span>}
           </div>
-          <p className="text-sm text-muted-foreground mb-8 line-clamp-2 leading-relaxed font-medium">{product.description}</p>
+          <p className={descriptionClass}>{product.description}</p>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <div className="flex flex-col">
-                <span className="text-[9px] font-bold tracking-[0.2em] uppercase text-muted-foreground mb-1.5">Capacity</span>
-                <span className="text-sm font-bold tracking-tight text-foreground">{product.puffsMax.toLocaleString()} Puffs</span>
-              </div>
-              <div className="w-[1px] h-8 bg-border/50"></div>
-              <div className="flex flex-col">
-                <span className="text-[9px] font-bold tracking-[0.2em] uppercase text-muted-foreground mb-1.5">Flavors</span>
-                <span className="text-sm font-bold tracking-tight text-foreground">{product.flavors.length} Options</span>
-              </div>
+          <div className={`flex items-center ${statsGapClass}`}>
+            <div className="flex flex-col">
+              <span className={statLabelClass}>Capacity</span>
+              <span className={statValueClass}>{product.puffsMax.toLocaleString()} Puffs</span>
             </div>
-            <div className="w-12 h-12 rounded-full bg-background border border-border/50 flex items-center justify-center group-hover:bg-foreground group-hover:text-background group-hover:border-foreground transition-all duration-500 shadow-sm">
-              <ChevronRight className="w-5 h-5 text-current" />
+            <div className="h-8 w-[1px] bg-border/50"></div>
+            <div className="flex flex-col">
+              <span className={statLabelClass}>Flavors</span>
+              <span className={statValueClass}>{product.flavors.length} Options</span>
             </div>
           </div>
         </Link>

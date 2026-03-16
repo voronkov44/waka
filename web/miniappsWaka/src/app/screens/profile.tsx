@@ -1,5 +1,5 @@
 import { Link } from 'react-router';
-import { Heart, HelpCircle, ChevronRight, Bell, Shield, FileText, Sun, Moon, MessageCircle } from 'lucide-react';
+import { Heart, HelpCircle, ChevronRight, Bell, Shield, FileText, Sun, Moon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { useFavorites } from '../hooks/useFavorites';
 import { useTheme } from '../hooks/useTheme';
@@ -32,8 +32,8 @@ const settingsSections: SettingsSection[] = [
   {
     title: 'Legal',
     items: [
-      { icon: FileText, label: 'Terms of Service', helperText: 'Provided in the official bot' },
-      { icon: Shield, label: 'Privacy Policy', helperText: 'Provided in the official bot' },
+      { icon: FileText, label: 'Terms of Service', helperText: 'Content coming soon', path: '/legal/terms' },
+      { icon: Shield, label: 'Privacy Policy', helperText: 'Content coming soon', path: '/legal/privacy' },
     ],
   },
 ];
@@ -41,8 +41,12 @@ const settingsSections: SettingsSection[] = [
 export function Profile() {
   const { favorites } = useFavorites();
   const { theme, toggleTheme } = useTheme();
-  const { profile, hasTelegramContext } = useTelegramUser();
-  const { user, isLoading, isAuthenticated, error, debug } = useAuth();
+  const { profile, telegramUser } = useTelegramUser();
+  const { user, error, debug } = useAuth();
+  const firstName = user?.first_name ?? telegramUser?.first_name ?? '';
+  const lastName = user?.last_name ?? telegramUser?.last_name ?? '';
+  const hasNameLines = Boolean(firstName || lastName);
+  const tgID = user?.tg_id ?? telegramUser?.id ?? null;
 
   return (
     <div className="min-h-screen pb-32">
@@ -62,11 +66,20 @@ export function Profile() {
               )}
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="mb-1 truncate text-2xl font-bold tracking-tight text-foreground">{profile.displayName}</h2>
+              <h2 className="mb-1 text-[28px] font-bold tracking-tight leading-[1.05] text-foreground">
+                {hasNameLines ? (
+                  <>
+                    {firstName && <span className="block break-words">{firstName}</span>}
+                    {lastName && <span className="block break-words">{lastName}</span>}
+                  </>
+                ) : (
+                  <span className="block break-words">{profile.displayName}</span>
+                )}
+              </h2>
               <p className="truncate text-[11px] font-bold uppercase tracking-[0.1em] text-foreground/70">{profile.handle}</p>
-              {user && (
-                <p className="truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground mt-2">
-                  Backend user ID: {user.id} · TG ID: {user.tg_id}
+              {tgID && (
+                <p className="mt-2 truncate text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  TG ID: {tgID}
                 </p>
               )}
             </div>
@@ -196,26 +209,6 @@ export function Profile() {
             </div>
           </div>
         ))}
-
-        <div className="mt-10 rounded-[32px] border border-border/50 bg-card p-6 shadow-sm">
-          <div className="flex items-start gap-4">
-            <div className="flex h-10 w-10 items-center justify-center rounded-[14px] border border-border/50 bg-background shadow-sm">
-              <MessageCircle className="h-4 w-4 text-foreground" />
-            </div>
-            <div>
-              <p className="mb-1 font-bold tracking-tight text-foreground">Telegram account is your profile source</p>
-              <p className="text-sm font-medium leading-relaxed text-muted-foreground">
-                {hasTelegramContext
-                  ? isLoading
-                    ? 'Syncing your Telegram identity with backend profile...'
-                    : isAuthenticated
-                      ? 'Your profile is synced with the backend and Telegram.'
-                      : 'Trying to authorize your Telegram identity.'
-                  : 'Open this mini app from Telegram to load your account details automatically.'}
-              </p>
-            </div>
-          </div>
-        </div>
 
         <div className="mb-8 mt-12 text-center">
           <WakaFullLogo height={50} className="mx-auto mb-4 opacity-20" />
