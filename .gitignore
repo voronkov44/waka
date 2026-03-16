@@ -35,3 +35,13 @@ __pycache__/
 *.py[cod]
 *$py.class
 .venv/
+
+# frontend
+web/miniappsWaka/node_modules/
+web/miniappsWaka/dist/
+web/miniappsWaka/.vite/
+
+# misc
+coverage/
+tmp/
+temp/
