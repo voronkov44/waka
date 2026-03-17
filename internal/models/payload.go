@@ -11,6 +11,7 @@ type ModelTag struct {
 	Label     string `json:"label"`
 	BgColor   string `json:"bg_color"`
 	TextColor string `json:"text_color"`
+	Outlined  bool   `json:"outlined"`
 }
 
 type Model struct {
