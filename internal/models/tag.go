@@ -20,6 +20,7 @@ func normalizeTag(in *ModelTag) (*ModelTag, error) {
 		Label:     strings.TrimSpace(in.Label),
 		BgColor:   strings.TrimSpace(in.BgColor),
 		TextColor: strings.TrimSpace(in.TextColor),
+		Outlined:  in.Outlined,
 	}
 
 	if tag.Key == "" {
