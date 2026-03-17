@@ -6,6 +6,7 @@ import (
 	"os"
 	"rest_waka/internal/faq"
 	"rest_waka/internal/favorites"
+	"rest_waka/internal/showcase"
 	"rest_waka/internal/users"
 
 	"rest_waka/config"
@@ -36,6 +37,7 @@ func main() {
 		&faq.Topic{},
 		&faq.Article{},
 		&faq.Block{},
+		&showcase.Showcase{},
 	); err != nil {
 		log.Error("automigrate failed", "error", err)
 		os.Exit(1)

@@ -16,6 +16,7 @@ import (
 	"rest_waka/internal/faq"
 	"rest_waka/internal/favorites"
 	"rest_waka/internal/models"
+	"rest_waka/internal/showcase"
 	"rest_waka/internal/users"
 	"rest_waka/pkg/middleware"
 	"rest_waka/pkg/s3store"
@@ -70,6 +71,7 @@ func main() {
 	usersRepo := users.NewGormRepository(gormDB)
 	favoritesRepo := favorites.NewGormRepository(gormDB)
 	faqRepo := faq.NewGormRepository(gormDB)
+	showcaseRepo := showcase.NewGormRepository(gormDB)
 
 	// service
 	modelsService := models.NewService(modelsRepo)
@@ -87,6 +89,7 @@ func main() {
 	usersService := users.NewService(usersRepo)
 	favoritesService := favorites.NewService(favoritesRepo)
 	faqService := faq.NewService(faqRepo)
+	showcaseService := showcase.NewService(showcaseRepo, modelsRepo)
 
 	//router
 	router := http.NewServeMux()
@@ -120,6 +123,14 @@ func main() {
 	faq.NewFaqHandler(router, faq.HandlerDeps{
 		Service:   faqService,
 		JWTSecret: cfg.Auth.JWTSecret,
+	})
+
+	showcase.NewShowcaseHandler(router, showcase.HandlerDeps{
+		Service:      showcaseService,
+		JWTSecret:    cfg.Auth.JWTSecret,
+		S3:           minio,
+		UsePresigned: cfg.S3.UsePresigned,
+		PresignTTL:   cfg.S3.PresignTTL,
 	})
 
 	// Middlewares

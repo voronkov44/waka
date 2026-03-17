@@ -2,42 +2,39 @@ package models
 
 import (
 	"encoding/json"
-	"regexp"
 	"strings"
 
 	"gorm.io/datatypes"
+	"rest_waka/pkg/tagutil"
 )
-
-var hexColorRe = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
 
 func normalizeTag(in *ModelTag) (*ModelTag, error) {
 	if in == nil {
 		return nil, nil
 	}
 
-	tag := &ModelTag{
-		Key:       strings.ToLower(strings.TrimSpace(in.Key)),
-		Label:     strings.TrimSpace(in.Label),
-		BgColor:   strings.TrimSpace(in.BgColor),
-		TextColor: strings.TrimSpace(in.TextColor),
+	key := strings.ToLower(strings.TrimSpace(in.Key))
+	if key == "" {
+		key = "custom"
+	}
+
+	visual, ok := tagutil.NormalizeVisualTag(tagutil.VisualTag{
+		Label:     in.Label,
+		BgColor:   in.BgColor,
+		TextColor: in.TextColor,
 		Outlined:  in.Outlined,
-	}
-
-	if tag.Key == "" {
-		tag.Key = "custom"
-	}
-	if tag.Label == "" {
-		return nil, ErrInvalidArgument
-	}
-	if !isValidHexColor(tag.BgColor) || !isValidHexColor(tag.TextColor) {
+	})
+	if !ok {
 		return nil, ErrInvalidArgument
 	}
 
-	return tag, nil
-}
-
-func isValidHexColor(s string) bool {
-	return hexColorRe.MatchString(strings.TrimSpace(s))
+	return &ModelTag{
+		Key:       key,
+		Label:     visual.Label,
+		BgColor:   visual.BgColor,
+		TextColor: visual.TextColor,
+		Outlined:  visual.Outlined,
+	}, nil
 }
 
 func marshalTag(tag *ModelTag) (datatypes.JSON, error) {
