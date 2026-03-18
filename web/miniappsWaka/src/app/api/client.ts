@@ -3,6 +3,7 @@ import type {
   FAQArticleDetailDTO,
   FAQArticleSummaryDTO,
   FAQTopicDTO,
+  ListShowcaseItemsResponseDTO,
   ListModelsResponseDTO,
   MeResponseDTO,
   ModelDTO,
@@ -40,6 +41,10 @@ export const apiClient = {
 
   getCatalogModel(id: number) {
     return http.get<PublicModelDTO>(`/api/catalog/models/${id}`, { auth: false });
+  },
+
+  listShowcaseItems(limit = 5, offset = 0) {
+    return http.get<ListShowcaseItemsResponseDTO>(withQuery('/api/showcase', { limit, offset }), { auth: false });
   },
 
   listFavorites(limit = 100, offset = 0) {

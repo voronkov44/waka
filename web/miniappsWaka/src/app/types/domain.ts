@@ -9,6 +9,22 @@ export interface ProductTag {
   textColor: string;
 }
 
+export interface ShowcaseTag {
+  label: string;
+  bgColor: string;
+  textColor: string;
+  outlined: boolean;
+}
+
+export interface ShowcaseItem {
+  id: number;
+  title: string;
+  description: string;
+  modelID: number;
+  photoUrl: string;
+  tag: ShowcaseTag;
+}
+
 export interface Product {
   id: number;
   name: string;

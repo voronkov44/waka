@@ -1,6 +1,25 @@
 import { productAssets } from '../assets';
-import type { ContentBlock, FAQArticleDetail, FAQArticleSummary, FAQTopic, FAQTopicIcon, Product, ProductStatus } from '../types/domain';
-import type { FAQArticleDetailDTO, FAQArticleSummaryDTO, FAQBlockDTO, FAQTopicDTO, ModelDTO, ModelTagDTO, PublicModelDTO } from './types';
+import type {
+  ContentBlock,
+  FAQArticleDetail,
+  FAQArticleSummary,
+  FAQTopic,
+  FAQTopicIcon,
+  Product,
+  ProductStatus,
+  ShowcaseItem,
+} from '../types/domain';
+import type {
+  FAQArticleDetailDTO,
+  FAQArticleSummaryDTO,
+  FAQBlockDTO,
+  FAQTopicDTO,
+  ModelDTO,
+  ModelTagDTO,
+  PublicModelDTO,
+  ShowcaseItemDTO,
+  ShowcaseTagDTO,
+} from './types';
 
 const fallbackProductPhotos = [productAssets.pulse, productAssets.ultra];
 
@@ -81,6 +100,33 @@ export function mapProduct(dto: PublicModelDTO | ModelDTO): Product {
     flavors: Array.isArray(dto.flavors) ? dto.flavors : [],
     priceCents: dto.price_cents ?? null,
     tag: mapTag(dto.tag),
+  };
+}
+
+function mapShowcaseTag(tag?: ShowcaseTagDTO) {
+  const label = typeof tag?.label === 'string' && tag.label.trim().length > 0 ? tag.label.trim() : 'Featured';
+
+  return {
+    label,
+    bgColor: tag?.bg_color ?? '#1c1c1a',
+    textColor: tag?.text_color ?? '#f4f1e8',
+    outlined: tag?.outlined ?? false,
+  };
+}
+
+export function mapShowcaseItem(dto: ShowcaseItemDTO): ShowcaseItem {
+  const title = typeof dto.title === 'string' && dto.title.trim().length > 0 ? dto.title.trim() : 'Waka';
+
+  return {
+    id: dto.id,
+    title,
+    description:
+      typeof dto.description === 'string' && dto.description.trim().length > 0
+        ? dto.description.trim()
+        : 'Explore our latest models and curated flavors.',
+    modelID: dto.model_id,
+    photoUrl: toPhotoURL(dto.photo_url, dto.id),
+    tag: mapShowcaseTag(dto.tag),
   };
 }
 

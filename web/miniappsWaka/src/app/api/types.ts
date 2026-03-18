@@ -28,6 +28,25 @@ export interface ModelTagDTO {
   text_color: string;
 }
 
+export interface ShowcaseTagDTO {
+  label: string;
+  bg_color: string;
+  text_color: string;
+  outlined: boolean;
+}
+
+export interface ShowcaseItemDTO {
+  id: number;
+  tag: ShowcaseTagDTO;
+  title: string;
+  description?: string;
+  model_id: number;
+  photo_url?: string;
+  sort: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface PublicModelDTO {
   id: number;
   name: string;
@@ -56,6 +75,12 @@ export interface ModelDTO {
 
 export interface ListModelsResponseDTO<TModel> {
   items: TModel[];
+  limit: number;
+  offset: number;
+}
+
+export interface ListShowcaseItemsResponseDTO {
+  items: ShowcaseItemDTO[];
   limit: number;
   offset: number;
 }

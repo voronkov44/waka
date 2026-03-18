@@ -6,6 +6,7 @@ import { WakaFullLogo } from '../components/waka-brand';
 import { VapeDeviceIcon } from '../components/icons/vape-device-icon';
 import { ProductStatusBadge } from '../components/product-status-badge';
 import { ModelImage } from '../components/model-image';
+import { useShowcaseItem } from '../hooks/useShowcaseItem';
 
 const quickActions = [
   { icon: VapeDeviceIcon, label: 'Browse Catalog', path: '/catalog' },
@@ -16,8 +17,8 @@ const quickActions = [
 
 export function Home() {
   const { favorites } = useFavorites();
+  const { showcaseItem } = useShowcaseItem();
   const { products, isLoading, error } = useCatalogModels();
-  const heroProduct = products[0] ?? null;
   const featuredProducts = products.slice(0, 3);
 
   return (
@@ -36,27 +37,27 @@ export function Home() {
           <div className="relative z-10 flex items-center gap-4">
             <div className="min-w-0 flex-[0_0_52%]">
               <div className="inline-flex items-center gap-2 border border-background/20 bg-background/10 backdrop-blur-md px-4 py-1.5 rounded-full text-[9px] font-bold mb-8 uppercase tracking-[0.3em] text-background">
-                Featured
+                {showcaseItem?.tag.label ?? 'Featured'}
               </div>
               <h2 className="text-5xl font-extrabold mb-5 tracking-tighter leading-[0.9]">
-                {heroProduct ? heroProduct.name : 'Waka'}
+                {showcaseItem?.title ?? 'Waka'}
               </h2>
               <p className="text-background/70 mb-10 text-[13px] leading-relaxed max-w-[220px] font-medium tracking-wide">
-                {heroProduct?.description ?? 'Explore our latest models and curated flavors.'}
+                {showcaseItem?.description ?? 'Explore our latest models and curated flavors.'}
               </p>
               <Link
-                to={heroProduct ? `/product/${heroProduct.id}` : '/catalog'}
+                to={showcaseItem?.modelID ? `/product/${showcaseItem.modelID}` : '/catalog'}
                 className="inline-flex items-center justify-center text-foreground bg-background px-8 py-4 rounded-full font-bold text-[11px] tracking-[0.2em] uppercase hover:scale-105 transition-transform duration-500 shadow-xl"
               >
                 Discover
               </Link>
             </div>
             <div className="relative flex-[0_0_48%] overflow-hidden">
-              {heroProduct && (
+              {showcaseItem && (
                 <ModelImage
                   preset="showcase"
-                  src={heroProduct.photoUrl}
-                  alt={heroProduct.name}
+                  src={showcaseItem.photoUrl}
+                  alt={showcaseItem.title}
                   className="mx-auto h-72 w-full max-w-[190px]"
                 />
               )}
