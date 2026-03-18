@@ -35,3 +35,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 .venv/
+
+# backup db
+backups/
+*.sql
+*.dump
+*.backup
