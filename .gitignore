@@ -45,3 +45,9 @@ web/miniappsWaka/.vite/
 coverage/
 tmp/
 temp/
+
+# backup db
+backups/
+*.sql
+*.dump
+*.backup
