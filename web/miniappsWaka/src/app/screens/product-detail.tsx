@@ -1,22 +1,38 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
-import { ChevronLeft, Heart, Zap } from 'lucide-react';
+import { ChevronDown, ChevronLeft, Heart, Zap } from 'lucide-react';
 import { useFavorites } from '../hooks/useFavorites';
 import { FlavorChip } from '../components/flavor-chip';
 import { ProductStatusBadge } from '../components/product-status-badge';
 import { useCatalogModel } from '../hooks/useCatalogModel';
 import { useCatalogModels } from '../hooks/useCatalogModels';
 
-function formatPrice(cents: number | null) {
-  if (cents === null || Number.isNaN(cents)) {
-    return '—';
+function normalizePriceCents(value: unknown): number | null {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : null;
   }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (trimmed.length === 0 || trimmed === '-' || trimmed === '—') {
+      return null;
+    }
+
+    const parsed = Number(trimmed);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
+
+function formatPrice(cents: number) {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
 export function ProductDetail() {
   const { id } = useParams<{ id: string }>();
   const productID = Number(id);
+  const [isFlavorsOpen, setIsFlavorsOpen] = useState(false);
   const navigate = useNavigate();
   const { isFavorite, toggleFavorite } = useFavorites();
   const { product, isLoading, error, notFound } = useCatalogModel(productID);
@@ -36,6 +52,16 @@ export function ProductDetail() {
     }
     return products.filter((item) => item.id !== product.id).slice(0, 3);
   }, [products, product]);
+
+  useEffect(() => {
+    setIsFlavorsOpen(false);
+  }, [product?.id]);
+
+  const flavorCount = Array.isArray(product?.flavors) ? product.flavors.length : 0;
+  const hasFlavors = flavorCount > 0;
+  const normalizedPriceCents = normalizePriceCents(product?.priceCents);
+  const priceLabel = normalizedPriceCents !== null ? formatPrice(normalizedPriceCents) : null;
+  const hasPrice = priceLabel !== null;
 
   if (isLoading) {
     return (
@@ -125,28 +151,61 @@ export function ProductDetail() {
             <div>
               <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground mb-2">Flavors</p>
               <p className="font-extrabold text-xl tracking-tight text-foreground">
-                {product.flavors.length} <span className="text-sm font-medium text-muted-foreground">opts</span>
+                {flavorCount} <span className="text-sm font-medium text-muted-foreground">opts</span>
               </p>
             </div>
           </div>
         </div>
 
-        <div className="mb-10">
-          <h3 className="text-[11px] font-bold tracking-[0.2em] uppercase text-muted-foreground mb-4 pl-2">Available Flavors</h3>
-          <div className="flex flex-wrap gap-2.5">
-            {product.flavors.map((flavor) => (
-              <FlavorChip key={flavor} flavor={flavor} />
-            ))}
-          </div>
-        </div>
+        {hasFlavors && (
+          <div className="mb-10">
+            <button
+              type="button"
+              aria-expanded={isFlavorsOpen}
+              aria-controls={`flavors-panel-${product.id}`}
+              onClick={() => setIsFlavorsOpen((prev) => !prev)}
+              className="w-full rounded-[28px] border border-border/50 bg-card px-6 py-4 shadow-sm flex items-center justify-between transition-all duration-300 hover:border-foreground/30"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-muted-foreground">Available flavors</span>
+                <span className="min-w-8 rounded-full border border-border/60 bg-background px-2 py-0.5 text-[11px] font-bold text-foreground">
+                  {flavorCount}
+                </span>
+              </div>
+              <ChevronDown
+                className={`h-4 w-4 text-muted-foreground transition-transform duration-300 ${
+                  isFlavorsOpen ? 'rotate-180' : 'rotate-0'
+                }`}
+              />
+            </button>
 
-        <div className="bg-card border border-border/50 rounded-[32px] p-8 mb-10 shadow-sm relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-foreground/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
-          <div className="relative z-10">
-            <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground mb-2">Price</p>
-            <p className="text-4xl font-extrabold tracking-tighter text-foreground">{formatPrice(product.priceCents)}</p>
+            <div
+              id={`flavors-panel-${product.id}`}
+              aria-hidden={!isFlavorsOpen}
+              className={`grid overflow-hidden transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)] ${
+                isFlavorsOpen ? 'mt-4 grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+              }`}
+            >
+              <div className="min-h-0">
+                <div className="flex flex-wrap gap-2.5">
+                  {product.flavors.map((flavor) => (
+                    <FlavorChip key={flavor} flavor={flavor} />
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
+
+        {hasPrice && (
+          <div className="bg-card border border-border/50 rounded-[32px] p-8 mb-10 shadow-sm relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-foreground/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+            <div className="relative z-10">
+              <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground mb-2">Price</p>
+              <p className="text-4xl font-extrabold tracking-tighter text-foreground">{priceLabel}</p>
+            </div>
+          </div>
+        )}
 
         {relatedProducts.length > 0 && (
           <div>
@@ -154,21 +213,50 @@ export function ProductDetail() {
               <h3 className="text-[11px] font-bold tracking-[0.2em] uppercase text-muted-foreground">Related Models</h3>
             </div>
             <div className="flex gap-4 overflow-x-auto pb-6 -mx-6 px-6 scrollbar-hide snap-x">
-              {relatedProducts.map((related) => (
-                <Link
-                  key={related.id}
-                  to={`/product/${related.id}`}
-                  className="flex-shrink-0 w-[240px] bg-card border border-border/50 rounded-[28px] overflow-hidden hover:border-foreground/30 hover:shadow-lg transition-all duration-500 snap-start shadow-sm"
-                >
-                  <div className="aspect-[4/3] bg-gradient-to-b from-foreground/5 to-transparent relative overflow-hidden flex items-center justify-center p-6">
-                    <img src={related.photoUrl} alt={related.name} className="w-full h-full object-contain filter drop-shadow-xl" />
-                  </div>
-                  <div className="p-5 border-t border-border/40">
-                    <p className="font-bold text-lg tracking-tight mb-1 truncate">{related.name}</p>
-                    <p className="text-sm font-semibold text-foreground/80">{formatPrice(related.priceCents)}</p>
-                  </div>
-                </Link>
-              ))}
+              {relatedProducts.map((related) => {
+                const flavorCount = Array.isArray(related.flavors) ? related.flavors.length : 0;
+                const description = typeof related.description === 'string' ? related.description.trim() : '';
+
+                return (
+                  <Link
+                    key={related.id}
+                    to={`/product/${related.id}`}
+                    className="flex-shrink-0 w-[240px] bg-card border border-border/50 rounded-[28px] overflow-hidden hover:border-foreground/30 hover:shadow-lg transition-all duration-500 snap-start shadow-sm"
+                  >
+                    <div className="aspect-[4/3] bg-gradient-to-b from-foreground/5 to-transparent relative overflow-hidden flex items-center justify-center p-6">
+                      <img src={related.photoUrl} alt={related.name} className="w-full h-full object-contain filter drop-shadow-xl" />
+                    </div>
+                    <div className="p-5 border-t border-border/40">
+                      <p className="text-[18px] font-bold tracking-tight leading-tight text-foreground break-words line-clamp-2">
+                        {related.name}
+                      </p>
+                      {description.length > 0 && (
+                        <p className="mb-2 mt-2 text-[12px] font-medium leading-relaxed text-muted-foreground line-clamp-2">
+                          {description}
+                        </p>
+                      )}
+
+                      <div className="mt-2 flex items-center gap-1.5">
+                        <div className="flex flex-col">
+                          <span className="mb-1 text-[8px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                            Capacity
+                          </span>
+                          <span className="text-[11px] font-bold tracking-tight text-foreground">
+                            {related.puffsMax.toLocaleString()} Puffs
+                          </span>
+                        </div>
+                        <div className="h-8 w-[1px] bg-border/50"></div>
+                        <div className="flex flex-col">
+                          <span className="mb-1 text-[8px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                            Flavors
+                          </span>
+                          <span className="text-[11px] font-bold tracking-tight text-foreground">{flavorCount} Options</span>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </div>
         )}

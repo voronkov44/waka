@@ -111,42 +111,56 @@ export function Home() {
 
         {!isLoading && !error && featuredProducts.length > 0 && (
           <div className="flex gap-5 overflow-x-auto pb-10 -mx-6 px-6 scrollbar-hide snap-x">
-            {featuredProducts.map((product) => (
-              <Link
-                key={product.id}
-                to={`/product/${product.id}`}
-                className="group relative flex-shrink-0 w-[300px] bg-card rounded-[36px] overflow-hidden border border-border/40 hover:border-foreground/30 transition-all duration-500 shadow-sm hover:shadow-2xl dark:shadow-none snap-start"
-              >
-                <div className="aspect-[4/3] bg-gradient-to-b from-foreground/5 to-transparent relative overflow-hidden flex items-center justify-center p-10">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,var(--glow-primary),transparent_70%)] pointer-events-none mix-blend-overlay" />
-                  <img
-                    src={product.photoUrl}
-                    alt={product.name}
-                    className="w-full h-full object-contain filter drop-shadow-2xl transition-transform duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-110"
-                  />
-                  <div className="absolute top-6 left-6 z-10">
-                    <ProductStatusBadge status={product.status} tag={product.tag} />
+            {featuredProducts.map((product) => {
+              const flavorCount = Array.isArray(product.flavors) ? product.flavors.length : 0;
+              const description = typeof product.description === 'string' ? product.description.trim() : '';
+
+              return (
+                <Link
+                  key={product.id}
+                  to={`/product/${product.id}`}
+                  className="group relative flex-shrink-0 w-[300px] bg-card rounded-[36px] overflow-hidden border border-border/40 hover:border-foreground/30 transition-all duration-500 shadow-sm hover:shadow-2xl dark:shadow-none snap-start"
+                >
+                  <div className="aspect-[4/3] bg-gradient-to-b from-foreground/5 to-transparent relative overflow-hidden flex items-center justify-center p-10">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,var(--glow-primary),transparent_70%)] pointer-events-none mix-blend-overlay" />
+                    <img
+                      src={product.photoUrl}
+                      alt={product.name}
+                      className="w-full h-full object-contain filter drop-shadow-2xl transition-transform duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-110"
+                    />
+                    <div className="absolute top-6 left-6 z-10">
+                      <ProductStatusBadge status={product.status} tag={product.tag} />
+                    </div>
                   </div>
-                </div>
-                <div className="relative p-7 pt-5 bg-card z-20 border-t border-border/40">
-                  <div className="mb-3 flex items-start justify-between gap-3">
-                    <h3 className="pr-2 text-2xl font-bold tracking-tighter leading-tight text-foreground break-words">
-                      {product.name}
-                    </h3>
-                    {product.priceCents !== null && (
-                      <p className="text-lg font-semibold tracking-tight text-foreground shrink-0">
-                        {(product.priceCents / 100).toFixed(2)} ₽
+                  <div className="relative p-7 pt-5 bg-card z-20 border-t border-border/40">
+                    <h3 className="text-2xl font-bold tracking-tighter leading-tight text-foreground break-words">{product.name}</h3>
+                    {description.length > 0 && (
+                      <p className="mb-3 mt-2 text-sm font-medium leading-relaxed text-muted-foreground line-clamp-2">
+                        {description}
                       </p>
                     )}
+
+                    <div className="mt-3 flex items-center gap-1.5">
+                      <div className="flex flex-col">
+                        <span className="mb-1.5 text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                          Capacity
+                        </span>
+                        <span className="text-[13px] font-bold tracking-tight text-foreground">
+                          {product.puffsMax.toLocaleString()} Puffs
+                        </span>
+                      </div>
+                      <div className="h-8 w-[1px] bg-border/50"></div>
+                      <div className="flex flex-col">
+                        <span className="mb-1.5 text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                          Flavors
+                        </span>
+                        <span className="text-[13px] font-bold tracking-tight text-foreground">{flavorCount} Options</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 mt-5">
-                    <span className="text-[9px] font-bold tracking-[0.2em] uppercase text-muted-foreground">
-                      {product.puffsMax.toLocaleString()} puffs
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>

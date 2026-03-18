@@ -23,11 +23,11 @@ export function Catalog() {
 
       let matchesPuff = true;
       if (puffFilter === 'up-to-10k') {
-        matchesPuff = product.puffsMax <= 10000;
+        matchesPuff = product.puffsMax < 10000;
       } else if (puffFilter === '10k-30k') {
-        matchesPuff = product.puffsMax > 10000 && product.puffsMax <= 30000;
+        matchesPuff = product.puffsMax >= 10000 && product.puffsMax < 30000;
       } else if (puffFilter === '30k+') {
-        matchesPuff = product.puffsMax > 30000;
+        matchesPuff = product.puffsMax >= 30000;
       }
 
       return matchesSearch && matchesPuff;
