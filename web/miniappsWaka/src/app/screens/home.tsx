@@ -32,7 +32,7 @@ export function Home() {
           <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-background/10 rounded-full blur-3xl mix-blend-overlay -translate-y-1/2 translate-x-1/3" />
           <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-background/5 rounded-full blur-3xl mix-blend-overlay translate-y-1/3 -translate-x-1/3" />
 
-          <div className="relative flex items-center gap-8 z-10">
+          <div className="relative z-10 flex items-center gap-6">
             <div className="flex-1">
               <div className="inline-flex items-center gap-2 border border-background/20 bg-background/10 backdrop-blur-md px-4 py-1.5 rounded-full text-[9px] font-bold mb-8 uppercase tracking-[0.3em] text-background">
                 Featured
@@ -50,12 +50,12 @@ export function Home() {
                 Discover
               </Link>
             </div>
-            <div className="w-40 h-56 flex-shrink-0 relative">
+            <div className="relative h-64 w-44 flex-shrink-0 overflow-hidden">
               {heroProduct && (
                 <img
                   src={heroProduct.photoUrl}
                   alt={heroProduct.name}
-                  className="w-full h-full object-contain scale-[1.8] origin-center drop-shadow-2xl"
+                  className="h-full w-full object-contain object-center scale-[1.34] translate-y-[8%] origin-center drop-shadow-[0_30px_40px_rgba(0,0,0,0.35)]"
                 />
               )}
             </div>
@@ -121,13 +121,15 @@ export function Home() {
                   to={`/product/${product.id}`}
                   className="group relative flex-shrink-0 w-[300px] bg-card rounded-[36px] overflow-hidden border border-border/40 hover:border-foreground/30 transition-all duration-500 shadow-sm hover:shadow-2xl dark:shadow-none snap-start"
                 >
-                  <div className="aspect-[4/3] bg-gradient-to-b from-foreground/5 to-transparent relative overflow-hidden flex items-center justify-center p-10">
+                  <div className="aspect-[4/3] bg-gradient-to-b from-foreground/5 to-transparent relative overflow-hidden flex items-center justify-center p-7">
                     <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,var(--glow-primary),transparent_70%)] pointer-events-none mix-blend-overlay" />
-                    <img
-                      src={product.photoUrl}
-                      alt={product.name}
-                      className="w-full h-full object-contain filter drop-shadow-2xl transition-transform duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-110"
-                    />
+                    <div className="h-full w-full overflow-hidden">
+                      <img
+                        src={product.photoUrl}
+                        alt={product.name}
+                        className="h-full w-full object-contain object-center scale-[1.24] translate-y-[5%] filter drop-shadow-2xl transition-transform duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.32]"
+                      />
+                    </div>
                     <div className="absolute top-6 left-6 z-10">
                       <ProductStatusBadge status={product.status} tag={product.tag} />
                     </div>
