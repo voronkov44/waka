@@ -2,6 +2,7 @@ import { Heart } from 'lucide-react';
 import { Link } from 'react-router';
 import type { Product } from '../types/domain';
 import { ProductStatusBadge } from './product-status-badge';
+import { ModelImage } from './model-image';
 
 interface ProductCardProps {
   product: Product;
@@ -35,7 +36,9 @@ export function ProductCard({
 }: ProductCardProps) {
   const price = formatPrice(product.priceCents);
   const rootRadiusClass = compact ? 'rounded-[20px]' : 'rounded-[22px]';
-  const mediaPaddingClass = compact ? 'p-2.5' : 'p-3.5';
+  const mediaAspectClass = compact ? 'aspect-[4/5]' : 'aspect-[11/12]';
+  const mediaPaddingClass = compact ? 'p-2' : 'p-2.5';
+  const imageClass = compact ? 'scale-[1.28] group-hover:scale-[1.36]' : '';
   const badgeOffsetClass = compact ? 'left-2 top-2' : 'left-2 top-2';
   const favoriteOffsetClass = compact ? 'right-2 top-2' : 'right-2 top-2';
   const favoriteSizeClass = compact ? 'h-7 w-7' : 'h-7 w-7';
@@ -60,17 +63,10 @@ export function ProductCard({
     >
       <Link to={`/product/${product.id}`} className="block relative">
         <div
-          className={`relative flex aspect-[4/5] items-center justify-center overflow-hidden bg-gradient-to-b from-foreground/5 to-transparent ${mediaPaddingClass}`}
+          className={`relative flex ${mediaAspectClass} items-center justify-center overflow-hidden bg-gradient-to-b from-foreground/5 to-transparent ${mediaPaddingClass}`}
         >
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,var(--glow-primary),transparent_70%)] pointer-events-none mix-blend-overlay" />
-
-          <div className="h-full w-full overflow-hidden">
-            <img
-              src={product.photoUrl}
-              alt={product.name}
-              className="h-full w-full object-contain object-center scale-[1.16] translate-y-[4%] filter drop-shadow-2xl transition-transform duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.24]"
-            />
-          </div>
+          <ModelImage preset="catalog" src={product.photoUrl} alt={product.name} imageClassName={imageClass} />
 
           <div className={`absolute z-10 ${badgeOffsetClass}`}>
             <ProductStatusBadge status={product.status} tag={product.tag} />

@@ -6,6 +6,7 @@ import { FlavorChip } from '../components/flavor-chip';
 import { ProductStatusBadge } from '../components/product-status-badge';
 import { useCatalogModel } from '../hooks/useCatalogModel';
 import { useCatalogModels } from '../hooks/useCatalogModels';
+import { ModelImage } from '../components/model-image';
 
 function normalizePriceCents(value: unknown): number | null {
   if (typeof value === 'number') {
@@ -125,13 +126,13 @@ export function ProductDetail() {
       <div className="px-6 pt-6">
         <div className="relative aspect-[4/5] rounded-[40px] overflow-hidden bg-card border border-border/50 shadow-sm dark:shadow-none flex items-center justify-center">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,var(--glow-primary),transparent_70%)] pointer-events-none mix-blend-overlay" />
-          <div className="h-full w-full overflow-hidden p-6">
-            <img
-              src={product.photoUrl}
-              alt={product.name}
-              className="h-full w-full object-contain object-center scale-[1.24] translate-y-[6%] filter drop-shadow-[0_32px_44px_rgba(0,0,0,0.34)]"
-            />
-          </div>
+          <ModelImage
+            preset="details"
+            src={product.photoUrl}
+            alt={product.name}
+            className="p-4"
+            imageClassName="translate-y-[11%]"
+          />
           <div className="absolute top-6 left-6 z-10">
             <ProductStatusBadge status={product.status} tag={product.tag} />
           </div>
@@ -229,14 +230,8 @@ export function ProductDetail() {
                     to={`/product/${related.id}`}
                     className="group flex-shrink-0 w-[240px] bg-card border border-border/50 rounded-[28px] overflow-hidden hover:border-foreground/30 hover:shadow-lg transition-all duration-500 snap-start shadow-sm"
                   >
-                    <div className="aspect-[4/3] bg-gradient-to-b from-foreground/5 to-transparent relative overflow-hidden flex items-center justify-center p-4">
-                      <div className="h-full w-full overflow-hidden">
-                        <img
-                          src={related.photoUrl}
-                          alt={related.name}
-                          className="h-full w-full object-contain object-center scale-[1.2] translate-y-[4%] filter drop-shadow-xl transition-transform duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.28]"
-                        />
-                      </div>
+                    <div className="aspect-[11/10] bg-gradient-to-b from-foreground/5 to-transparent relative overflow-hidden flex items-center justify-center p-3">
+                      <ModelImage preset="related" src={related.photoUrl} alt={related.name} />
                     </div>
                     <div className="p-5 border-t border-border/40">
                       <p className="text-[18px] font-bold tracking-tight leading-tight text-foreground break-words line-clamp-2">
