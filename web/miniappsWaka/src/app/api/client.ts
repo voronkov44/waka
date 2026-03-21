@@ -24,6 +24,8 @@ function withQuery(path: string, params: Record<string, string | number | undefi
   return queryString ? `${path}?${queryString}` : path;
 }
 
+const FAQ_MINIAPP_CHANNEL = 'miniapp';
+
 export const apiClient = {
   loginTelegram(payload: TelegramAuthRequestDTO) {
     return http.post<TokenResponseDTO>('/api/auth/telegram', payload, { auth: false });
@@ -60,12 +62,19 @@ export const apiClient = {
   },
 
   listFAQTopics() {
-    return http.get<FAQTopicDTO[]>('/api/faq/topics', { auth: false });
+    return http.get<FAQTopicDTO[]>(withQuery('/api/faq/topics', { channel: FAQ_MINIAPP_CHANNEL }), { auth: false });
   },
 
-  listFAQArticlesByTopic(topicID: number, channel = 'miniapp') {
+  listFAQArticlesByTopic(topicID: number) {
     return http.get<FAQArticleSummaryDTO[]>(
-      withQuery(`/api/faq/topics/${topicID}/articles`, { channel }),
+      withQuery(`/api/faq/topics/${topicID}/articles`, { channel: FAQ_MINIAPP_CHANNEL }),
+      { auth: false },
+    );
+  },
+
+  searchFAQArticles(q: string, limit?: number, offset?: number) {
+    return http.get<FAQArticleSummaryDTO[]>(
+      withQuery('/api/faq/search', { q, channel: FAQ_MINIAPP_CHANNEL, limit, offset }),
       { auth: false },
     );
   },

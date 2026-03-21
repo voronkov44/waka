@@ -36,7 +36,7 @@ export function useFAQArticles(topicID?: number): UseFAQArticlesResult {
     try {
       const [topicsResponse, articlesResponse] = await Promise.all([
         apiClient.listFAQTopics(),
-        apiClient.listFAQArticlesByTopic(topicID, 'miniapp'),
+        apiClient.listFAQArticlesByTopic(topicID),
       ]);
 
       const currentTopic = topicsResponse.find((item) => item.id === topicID);

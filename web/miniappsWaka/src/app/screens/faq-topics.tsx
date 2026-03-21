@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { ChevronRight, Rocket, Info, Sparkles, Wrench, AlertCircle, Shield } from 'lucide-react';
 import { SearchBar } from '../components/search-bar';
+import { apiClient } from '../api/client';
 import { useFAQTopics } from '../hooks/useFAQTopics';
 import type { FAQTopicIcon } from '../types/domain';
 
@@ -16,14 +17,56 @@ const iconMap: Record<FAQTopicIcon, typeof Rocket> = {
 
 export function FAQTopics() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [apiMatchedTopicIDs, setApiMatchedTopicIDs] = useState<Set<number> | null>(null);
   const { topics, isLoading, error } = useFAQTopics();
 
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (!query) {
+      setApiMatchedTopicIDs(null);
+      return;
+    }
+
+    setApiMatchedTopicIDs(null);
+    let isCancelled = false;
+    const timeoutID = window.setTimeout(() => {
+      void apiClient
+        .searchFAQArticles(query)
+        .then((articles) => {
+          if (isCancelled) {
+            return;
+          }
+          setApiMatchedTopicIDs(new Set(articles.map((article) => article.topic_id)));
+        })
+        .catch(() => {
+          if (isCancelled) {
+            return;
+          }
+          setApiMatchedTopicIDs(new Set());
+        });
+    }, 300);
+
+    return () => {
+      isCancelled = true;
+      window.clearTimeout(timeoutID);
+    };
+  }, [searchQuery]);
+
   const filteredTopics = useMemo(() => {
-    const query = searchQuery.toLowerCase();
-    return topics.filter(
-      (topic) => topic.title.toLowerCase().includes(query) || topic.description.toLowerCase().includes(query),
-    );
-  }, [topics, searchQuery]);
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) {
+      return topics;
+    }
+
+    return topics.filter((topic) => {
+      const localMatch = topic.title.toLowerCase().includes(query) || topic.description.toLowerCase().includes(query);
+      if (localMatch) {
+        return true;
+      }
+
+      return apiMatchedTopicIDs?.has(topic.id) ?? false;
+    });
+  }, [topics, searchQuery, apiMatchedTopicIDs]);
 
   return (
     <div className="min-h-screen pb-32">

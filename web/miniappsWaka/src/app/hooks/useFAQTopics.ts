@@ -17,7 +17,7 @@ export function useFAQTopics() {
       const articleCounts = await Promise.all(
         topicsResponse.map(async (topic) => {
           try {
-            const articles = await apiClient.listFAQArticlesByTopic(topic.id, 'miniapp');
+            const articles = await apiClient.listFAQArticlesByTopic(topic.id);
             return { topicID: topic.id, count: articles.length };
           } catch {
             return { topicID: topic.id, count: 0 };
