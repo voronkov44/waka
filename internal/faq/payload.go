@@ -8,7 +8,7 @@ import (
 
 const (
 	ChannelAll     = "all"
-	ChannelTG      = "tg"
+	ChannelBot     = "bot"
 	ChannelMiniApp = "miniapp"
 )
 
@@ -32,6 +32,7 @@ const (
 type Topic struct {
 	ID        uint64    `json:"id" gorm:"primaryKey"`
 	Title     string    `json:"title"`
+	Channel   string    `json:"channel" gorm:"size:16;index"`
 	Sort      int       `json:"sort"`
 	IsActive  bool      `json:"is_active"`
 	CreatedAt time.Time `json:"created_at"`
@@ -124,13 +125,15 @@ type AdminArticleFilter struct {
 // request
 
 type CreateTopicRequest struct {
-	Title    string `json:"title"`
-	Sort     *int   `json:"sort,omitempty"`
-	IsActive *bool  `json:"is_active,omitempty"`
+	Title    string  `json:"title"`
+	Channel  *string `json:"channel,omitempty"` // all|bot|miniapp
+	Sort     *int    `json:"sort,omitempty"`
+	IsActive *bool   `json:"is_active,omitempty"`
 }
 
 type UpdateTopicRequest struct {
 	Title    *string `json:"title,omitempty"`
+	Channel  *string `json:"channel,omitempty"` // all|bot|miniapp
 	Sort     *int    `json:"sort,omitempty"`
 	IsActive *bool   `json:"is_active,omitempty"`
 }
@@ -180,8 +183,8 @@ func normalizeChannel(s string) (string, bool) {
 	switch v {
 	case "", ChannelAll:
 		return ChannelAll, true
-	case ChannelTG:
-		return ChannelTG, true
+	case ChannelBot:
+		return ChannelBot, true
 	case ChannelMiniApp:
 		return ChannelMiniApp, true
 	default:
@@ -196,8 +199,8 @@ func normalizeChannelFilter(s string) (string, bool) {
 		return "", true
 	case ChannelAll:
 		return ChannelAll, true
-	case ChannelTG:
-		return ChannelTG, true
+	case ChannelBot:
+		return ChannelBot, true
 	case ChannelMiniApp:
 		return ChannelMiniApp, true
 	default:
