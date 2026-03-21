@@ -28,6 +28,11 @@ interface WaitOptions {
 }
 
 const INIT_DATA_PARAM_KEYS = ['tgWebAppData', 'initData'];
+const APP_HEIGHT_CSS_VAR = '--app-height';
+const MIN_APP_HEIGHT_PX = 320;
+
+let viewportResizeSyncStarted = false;
+let viewportChangedSubscribed = false;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -153,6 +158,56 @@ function getTelegramWebApp(): TelegramWebApp | null {
   return window.Telegram?.WebApp ?? null;
 }
 
+function getViewportHeight(webApp: TelegramWebApp | null): number {
+  const stableHeight =
+    typeof webApp?.viewportStableHeight === 'number' && Number.isFinite(webApp.viewportStableHeight)
+      ? webApp.viewportStableHeight
+      : null;
+  if (stableHeight && stableHeight > 0) {
+    return stableHeight;
+  }
+
+  const viewportHeight =
+    typeof webApp?.viewportHeight === 'number' && Number.isFinite(webApp.viewportHeight)
+      ? webApp.viewportHeight
+      : null;
+  if (viewportHeight && viewportHeight > 0) {
+    return viewportHeight;
+  }
+
+  return window.innerHeight;
+}
+
+function applyViewportHeight(webApp: TelegramWebApp | null) {
+  const nextHeight = Math.max(MIN_APP_HEIGHT_PX, Math.round(getViewportHeight(webApp)));
+  document.documentElement.style.setProperty(APP_HEIGHT_CSS_VAR, `${nextHeight}px`);
+}
+
+function startViewportSync(webApp: TelegramWebApp | null) {
+  applyViewportHeight(webApp);
+
+  if (!viewportResizeSyncStarted) {
+    const syncViewport = () => {
+      applyViewportHeight(getTelegramWebApp());
+    };
+
+    window.addEventListener('resize', syncViewport, { passive: true });
+    window.addEventListener('orientationchange', syncViewport, { passive: true });
+    viewportResizeSyncStarted = true;
+  }
+
+  if (!viewportChangedSubscribed && webApp?.onEvent) {
+    try {
+      webApp.onEvent('viewportChanged', () => {
+        applyViewportHeight(getTelegramWebApp());
+      });
+      viewportChangedSubscribed = true;
+    } catch (error) {
+      logDebug('WebApp.onEvent(viewportChanged) failed', error);
+    }
+  }
+}
+
 export async function waitForTelegramWebApp(options: WaitOptions = {}): Promise<TelegramWebApp | null> {
   const maxAttempts = options.maxAttempts ?? 8;
   const delayMs = options.delayMs ?? 100;
@@ -199,6 +254,7 @@ export async function ensureTelegramViewport(options: WaitOptions = {}) {
     delayMs: options.delayMs ?? 120,
   });
   markReadyAndExpand(webApp);
+  startViewportSync(getTelegramWebApp() ?? webApp);
 }
 
 export async function bootstrapTelegramContext(options: WaitOptions = {}): Promise<TelegramBootstrapContext> {
@@ -224,6 +280,8 @@ export async function bootstrapTelegramContext(options: WaitOptions = {}): Promi
       readyCalled = readyCalled || viewportDiagnostics.readyCalled;
       expandCalled = expandCalled || viewportDiagnostics.expandCalled;
     }
+
+    startViewportSync(getTelegramWebApp() ?? webApp);
 
     const initDataResult = resolveInitData(webApp);
     initData = initDataResult.initData;

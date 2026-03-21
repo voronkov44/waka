@@ -2,6 +2,26 @@
 @import './tailwind.css';
 @import './theme.css';
 
+@layer base {
+  :root {
+    --app-height: 100dvh;
+  }
+
+  html,
+  body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    overscroll-behavior-y: none;
+  }
+
+  #root {
+    height: var(--app-height, 100dvh);
+    min-height: var(--app-height, 100dvh);
+    overflow: hidden;
+  }
+}
+
 /* Custom utilities */
 @layer utilities {
   .scrollbar-hide {
@@ -19,5 +39,31 @@
   
   .pt-safe {
     padding-top: env(safe-area-inset-top);
+  }
+
+  .tma-shell {
+    position: relative;
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden;
+  }
+
+  .tma-scroll {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+@supports (height: 100dvh) {
+  .h-screen {
+    height: 100dvh;
+  }
+
+  .min-h-screen {
+    min-height: 100dvh;
   }
 }

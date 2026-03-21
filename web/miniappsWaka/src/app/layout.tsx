@@ -14,10 +14,12 @@ export function Layout() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background text-foreground transition-colors duration-300" data-theme={theme}>
+    <div className="tma-shell bg-background text-foreground transition-colors duration-300" data-theme={theme}>
       <AuthProvider>
         <FavoritesProvider>
-          <Outlet />
+          <div className="tma-scroll">
+            <Outlet />
+          </div>
         </FavoritesProvider>
       </AuthProvider>
       <BottomNav />

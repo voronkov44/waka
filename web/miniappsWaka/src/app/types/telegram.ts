@@ -11,11 +11,15 @@ export interface TelegramUser {
 export interface TelegramWebApp {
   colorScheme?: 'light' | 'dark';
   initData?: string;
+  viewportHeight?: number;
+  viewportStableHeight?: number;
   initDataUnsafe?: {
     user?: TelegramUser;
   };
   ready?: () => void;
   expand?: () => void;
+  onEvent?: (eventType: string, eventHandler: (...args: unknown[]) => void) => void;
+  offEvent?: (eventType: string, eventHandler: (...args: unknown[]) => void) => void;
 }
 
 declare global {
