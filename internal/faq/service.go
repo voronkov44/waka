@@ -11,7 +11,7 @@ import (
 
 type Service interface {
 	// public
-	ListTopics(ctx context.Context) ([]Topic, error)
+	ListTopics(ctx context.Context, channel string) ([]Topic, error)
 	ListArticlesByTopic(ctx context.Context, topicID uint64, channel string) ([]ArticleSummary, error)
 	GetArticle(ctx context.Context, id uint64) (ArticleDetail, error)
 	Search(ctx context.Context, q, channel string, limit, offset int) ([]ArticleSummary, error)
@@ -51,8 +51,12 @@ func NewService(repo Repository) Service {
 
 // public
 
-func (s *service) ListTopics(ctx context.Context) ([]Topic, error) {
-	return s.repo.ListTopics(ctx, true)
+func (s *service) ListTopics(ctx context.Context, channel string) ([]Topic, error) {
+	ch, ok := normalizeChannel(channel)
+	if !ok {
+		return nil, ErrInvalidArgument
+	}
+	return s.repo.ListTopics(ctx, true, ch)
 }
 
 func (s *service) ListArticlesByTopic(ctx context.Context, topicID uint64, channel string) ([]ArticleSummary, error) {
@@ -63,6 +67,18 @@ func (s *service) ListArticlesByTopic(ctx context.Context, topicID uint64, chann
 	if topicID == 0 {
 		return nil, ErrInvalidArgument
 	}
+
+	topic, err := s.repo.GetTopic(ctx, topicID)
+	if err != nil {
+		return nil, err
+	}
+	if !topic.IsActive {
+		return nil, ErrNotFound
+	}
+	if !isVisibleForChannel(topic.Channel, ch) {
+		return nil, ErrNotFound
+	}
+
 	return s.repo.ListArticlesByTopic(ctx, topicID, ch)
 }
 
@@ -88,7 +104,7 @@ func (s *service) Search(ctx context.Context, q, channel string, limit, offset i
 // admin read
 
 func (s *service) ListTopicsAdmin(ctx context.Context) ([]Topic, error) {
-	return s.repo.ListTopics(ctx, false)
+	return s.repo.ListTopics(ctx, false, "")
 }
 
 func (s *service) ListArticlesAdmin(ctx context.Context, filter AdminArticleFilter) (ListAdminArticlesResponse, error) {
@@ -180,19 +196,32 @@ func (s *service) CreateTopic(ctx context.Context, req CreateTopicRequest) (Topi
 	if req.Sort != nil {
 		sort = *req.Sort
 	}
+
 	active := true
 	if req.IsActive != nil {
 		active = *req.IsActive
 	}
 
+	channel := ChannelAll
+	if req.Channel != nil {
+		v, ok := normalizeChannel(*req.Channel)
+		if !ok {
+			return Topic{}, ErrInvalidArgument
+		}
+		channel = v
+	}
+
 	t := Topic{
 		Title:    title,
+		Channel:  channel,
 		Sort:     sort,
 		IsActive: active,
 	}
+
 	if err := s.repo.CreateTopic(ctx, &t); err != nil {
 		return Topic{}, err
 	}
+
 	return t, nil
 }
 
@@ -200,10 +229,42 @@ func (s *service) UpdateTopic(ctx context.Context, id uint64, req UpdateTopicReq
 	if id == 0 {
 		return Topic{}, ErrInvalidArgument
 	}
-	if req.Title != nil && strings.TrimSpace(*req.Title) == "" {
-		return Topic{}, ErrInvalidArgument
+
+	patch := req
+
+	if patch.Title != nil {
+		v := strings.TrimSpace(*patch.Title)
+		if v == "" {
+			return Topic{}, ErrInvalidArgument
+		}
+		patch.Title = &v
 	}
-	return s.repo.UpdateTopic(ctx, id, req)
+
+	if patch.Channel != nil {
+		v, ok := normalizeChannel(*patch.Channel)
+		if !ok {
+			return Topic{}, ErrInvalidArgument
+		}
+
+		current, err := s.repo.GetTopic(ctx, id)
+		if err != nil {
+			return Topic{}, err
+		}
+
+		if current.Channel != v {
+			count, err := s.repo.CountArticlesByTopic(ctx, id)
+			if err != nil {
+				return Topic{}, err
+			}
+			if count > 0 {
+				return Topic{}, ErrConflict
+			}
+		}
+
+		patch.Channel = &v
+	}
+
+	return s.repo.UpdateTopic(ctx, id, patch)
 }
 
 func (s *service) DeleteTopic(ctx context.Context, id uint64) error {
@@ -223,22 +284,35 @@ func (s *service) CreateArticle(ctx context.Context, req CreateArticleRequest) (
 		return Article{}, ErrInvalidArgument
 	}
 
-	ch := ChannelAll
+	topic, err := s.repo.GetTopic(ctx, req.TopicID)
+	if err != nil {
+		return Article{}, err
+	}
+
+	channel := topic.Channel
+	if channel == "" {
+		channel = ChannelAll
+	}
+
 	if req.Channel != nil {
 		v, ok := normalizeChannel(*req.Channel)
 		if !ok {
 			return Article{}, ErrInvalidArgument
 		}
-		ch = v
+		channel = v
 	}
 
-	st := StatusDraft
+	if !isArticleChannelAllowedForTopic(topic.Channel, channel) {
+		return Article{}, ErrInvalidArgument
+	}
+
+	status := StatusDraft
 	if req.Status != nil {
 		v, ok := normalizeStatus(*req.Status)
 		if !ok {
 			return Article{}, ErrInvalidArgument
 		}
-		st = v
+		status = v
 	}
 
 	slug := ""
@@ -253,10 +327,11 @@ func (s *service) CreateArticle(ctx context.Context, req CreateArticleRequest) (
 		TopicID: req.TopicID,
 		Title:   title,
 		Slug:    slug,
-		Status:  st,
-		Channel: ch,
+		Status:  status,
+		Channel: channel,
 	}
-	if st == StatusPublished {
+
+	if status == StatusPublished {
 		now := s.now()
 		a.PublishedAt = &now
 	}
@@ -264,6 +339,7 @@ func (s *service) CreateArticle(ctx context.Context, req CreateArticleRequest) (
 	if err := s.repo.CreateArticle(ctx, &a); err != nil {
 		return Article{}, err
 	}
+
 	return a, nil
 }
 
@@ -272,7 +348,13 @@ func (s *service) UpdateArticle(ctx context.Context, id uint64, req UpdateArticl
 		return Article{}, ErrInvalidArgument
 	}
 
+	current, _, err := s.repo.GetArticleAnyStatus(ctx, id)
+	if err != nil {
+		return Article{}, err
+	}
+
 	patch := req
+
 	if patch.TopicID != nil && *patch.TopicID == 0 {
 		return Article{}, ErrInvalidArgument
 	}
@@ -284,6 +366,7 @@ func (s *service) UpdateArticle(ctx context.Context, id uint64, req UpdateArticl
 		}
 		patch.Title = &v
 	}
+
 	if patch.Slug != nil {
 		v := strings.TrimSpace(*patch.Slug)
 		if v == "" {
@@ -291,19 +374,37 @@ func (s *service) UpdateArticle(ctx context.Context, id uint64, req UpdateArticl
 		}
 		patch.Slug = &v
 	}
+
+	finalChannel := current.Channel
 	if patch.Channel != nil {
 		v, ok := normalizeChannel(*patch.Channel)
 		if !ok {
 			return Article{}, ErrInvalidArgument
 		}
 		patch.Channel = &v
+		finalChannel = v
 	}
+
 	if patch.Status != nil {
 		v, ok := normalizeStatus(*patch.Status)
 		if !ok {
 			return Article{}, ErrInvalidArgument
 		}
 		patch.Status = &v
+	}
+
+	finalTopicID := current.TopicID
+	if patch.TopicID != nil {
+		finalTopicID = *patch.TopicID
+	}
+
+	topic, err := s.repo.GetTopic(ctx, finalTopicID)
+	if err != nil {
+		return Article{}, err
+	}
+
+	if !isArticleChannelAllowedForTopic(topic.Channel, finalChannel) {
+		return Article{}, ErrInvalidArgument
 	}
 
 	return s.repo.UpdateArticle(ctx, id, patch)
@@ -475,6 +576,26 @@ func (s *service) refreshArticleSearchText(ctx context.Context, articleID uint64
 	}
 
 	return s.repo.UpdateArticleSearchText(ctx, articleID, &searchText)
+}
+
+func isVisibleForChannel(contentChannel, requestedChannel string) bool {
+	if requestedChannel == ChannelAll {
+		return true
+	}
+	return contentChannel == ChannelAll || contentChannel == requestedChannel
+}
+
+func isArticleChannelAllowedForTopic(topicChannel, articleChannel string) bool {
+	switch topicChannel {
+	case ChannelAll:
+		return articleChannel == ChannelAll ||
+			articleChannel == ChannelBot ||
+			articleChannel == ChannelMiniApp
+	case ChannelBot, ChannelMiniApp:
+		return articleChannel == topicChannel
+	default:
+		return false
+	}
 }
 
 func makeSlug(title string) string {

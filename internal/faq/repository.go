@@ -12,11 +12,12 @@ import (
 
 type Repository interface {
 	// topics
-	ListTopics(ctx context.Context, activeOnly bool) ([]Topic, error)
+	ListTopics(ctx context.Context, activeOnly bool, channel string) ([]Topic, error)
 	GetTopic(ctx context.Context, id uint64) (Topic, error)
 	CreateTopic(ctx context.Context, t *Topic) error
 	UpdateTopic(ctx context.Context, id uint64, patch UpdateTopicRequest) (Topic, error)
 	DeleteTopic(ctx context.Context, id uint64) error
+	CountArticlesByTopic(ctx context.Context, topicID uint64) (int64, error)
 
 	// public articles
 	ListArticlesByTopic(ctx context.Context, topicID uint64, channel string) ([]ArticleSummary, error)
@@ -47,12 +48,19 @@ func NewGormRepository(db *gorm.DB) *GormRepository {
 	return &GormRepository{db: db}
 }
 
-func (r *GormRepository) ListTopics(ctx context.Context, activeOnly bool) ([]Topic, error) {
+func (r *GormRepository) ListTopics(ctx context.Context, activeOnly bool, channel string) ([]Topic, error) {
 	var out []Topic
+
 	q := r.db.WithContext(ctx).Model(&Topic{})
+
 	if activeOnly {
 		q = q.Where("is_active = TRUE")
 	}
+
+	if channel != "" && channel != ChannelAll {
+		q = q.Where("channel IN (?, ?)", ChannelAll, channel)
+	}
+
 	err := q.Order("sort asc, title asc").Find(&out).Error
 	return out, err
 }
@@ -83,6 +91,9 @@ func (r *GormRepository) UpdateTopic(ctx context.Context, id uint64, patch Updat
 		updates := map[string]any{}
 		if patch.Title != nil {
 			updates["title"] = strings.TrimSpace(*patch.Title)
+		}
+		if patch.Channel != nil {
+			updates["channel"] = *patch.Channel
 		}
 		if patch.Sort != nil {
 			updates["sort"] = *patch.Sort
@@ -449,6 +460,15 @@ func (r *GormRepository) DeleteBlock(ctx context.Context, id uint64) (uint64, er
 	}
 
 	return blk.ArticleID, nil
+}
+
+func (r *GormRepository) CountArticlesByTopic(ctx context.Context, topicID uint64) (int64, error) {
+	var count int64
+	err := r.db.WithContext(ctx).
+		Model(&Article{}).
+		Where("topic_id = ?", topicID).
+		Count(&count).Error
+	return count, err
 }
 
 func (r *GormRepository) UpdateArticleSearchText(ctx context.Context, articleID uint64, searchText *string) error {

@@ -53,7 +53,9 @@ func NewFaqHandler(router *http.ServeMux, deps HandlerDeps) {
 
 func (handler *Handler) ListTopics() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		data, err := handler.svc.ListTopics(r.Context())
+		channel := r.URL.Query().Get("channel") // all|bot|miniapp
+
+		data, err := handler.svc.ListTopics(r.Context(), channel)
 		if err != nil {
 			writeFaqErr(w, err)
 			return
@@ -70,7 +72,7 @@ func (handler *Handler) ListArticlesByTopic() http.HandlerFunc {
 			return
 		}
 
-		channel := r.URL.Query().Get("channel") // all|tg|miniapp (пусто -> all)
+		channel := r.URL.Query().Get("channel") // all|bot|miniapp (пусто -> all)
 		data, err := handler.svc.ListArticlesByTopic(r.Context(), topicID, channel)
 		if err != nil {
 			writeFaqErr(w, err)
