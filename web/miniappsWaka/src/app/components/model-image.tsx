@@ -4,7 +4,7 @@ export type ModelImagePreset = 'showcase' | 'featured' | 'catalog' | 'related' |
 
 const presetClassMap: Record<ModelImagePreset, string> = {
   showcase:
-    'h-full w-full object-contain object-center scale-[1.52] translate-y-[6%] filter drop-shadow-[0_34px_44px_rgba(0,0,0,0.36)]',
+    'h-full w-full object-contain object-center scale-100 translate-y-0 filter drop-shadow-[0_34px_44px_rgba(0,0,0,0.36)]',
   featured:
     'h-full w-full object-contain object-center scale-[1.56] translate-y-[7%] filter drop-shadow-2xl transition-transform duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] group-hover:scale-[1.66]',
   catalog:

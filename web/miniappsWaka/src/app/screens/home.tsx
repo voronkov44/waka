@@ -30,19 +30,19 @@ export function Home() {
       </div>
 
       <div className="px-6 mb-14 mt-4">
-        <div className="relative overflow-hidden rounded-[40px] bg-foreground text-background p-10 shadow-[0_30px_60px_-15px_var(--glow-primary)]">
+        <div className="relative overflow-hidden rounded-[40px] bg-foreground text-background px-8 py-10 shadow-[0_30px_60px_-15px_var(--glow-primary)]">
           <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-background/10 rounded-full blur-3xl mix-blend-overlay -translate-y-1/2 translate-x-1/3" />
           <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-background/5 rounded-full blur-3xl mix-blend-overlay translate-y-1/3 -translate-x-1/3" />
 
-          <div className="relative z-10 flex items-center gap-4">
-            <div className="min-w-0 flex-[0_0_52%]">
+          <div className="relative z-10 flex items-center gap-3">
+            <div className="min-w-0 flex-[0_0_50%]">
               <div className="inline-flex items-center gap-2 border border-background/20 bg-background/10 backdrop-blur-md px-4 py-1.5 rounded-full text-[9px] font-bold mb-8 uppercase tracking-[0.3em] text-background">
                 {showcaseItem?.tag.label ?? 'Featured'}
               </div>
               <h2 className="text-5xl font-extrabold mb-5 tracking-tighter leading-[0.9]">
                 {showcaseItem?.title ?? 'Waka'}
               </h2>
-              <p className="text-background/70 mb-10 text-[13px] leading-relaxed max-w-[220px] font-medium tracking-wide">
+              <p className="text-background/70 mb-10 text-[13px] leading-relaxed max-w-[270px] font-medium tracking-wide">
                 {showcaseItem?.description ?? 'Explore our latest models and curated flavors.'}
               </p>
               <Link
@@ -52,13 +52,13 @@ export function Home() {
                 Discover
               </Link>
             </div>
-            <div className="relative flex-[0_0_48%] overflow-hidden">
+            <div className="relative flex-[0_0_50%] overflow-hidden">
               {showcaseItem && (
                 <ModelImage
                   preset="showcase"
                   src={showcaseItem.photoUrl}
                   alt={showcaseItem.title}
-                  className="mx-auto h-72 w-full max-w-[190px]"
+                  className="mx-auto h-[26rem] w-full"
                 />
               )}
             </div>
