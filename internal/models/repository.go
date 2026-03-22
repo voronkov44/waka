@@ -45,7 +45,7 @@ func (r *GormRepository) Get(ctx context.Context, id uint64) (WakaModel, error) 
 
 func (r *GormRepository) List(ctx context.Context, limit, offset int) ([]WakaModel, error) {
 	var list []WakaModel
-	q := r.db.WithContext(ctx).Model(&WakaModel{}).Order("id DESC")
+	q := r.db.WithContext(ctx).Model(&WakaModel{}).Order("puffs_max DESC").Order("id DESC")
 
 	if limit > 0 {
 		q = q.Limit(limit)
@@ -102,6 +102,7 @@ func (r *GormRepository) ListByStatus(ctx context.Context, status string, limit,
 	q := r.db.WithContext(ctx).
 		Model(&WakaModel{}).
 		Where("status = ?", status).
+		Order("puffs_max DESC").
 		Order("id DESC")
 
 	if limit > 0 {

@@ -51,7 +51,15 @@ func (s *Service) Create(ctx context.Context, req CreateModelRequest) (Model, er
 		return Model{}, err
 	}
 
-	flvJson, err := modelsutil.MarshalFlavors(req.Flavors)
+	normalizedFlavors, err := modelsutil.NormalizeFlavors(req.Flavors)
+	if err != nil {
+		if errors.Is(err, modelsutil.ErrEmptyFlavor) {
+			return Model{}, ErrInvalidArgument
+		}
+		return Model{}, err
+	}
+
+	flvJson, err := modelsutil.MarshalFlavors(normalizedFlavors)
 	if err != nil {
 		return Model{}, err
 	}
@@ -194,7 +202,16 @@ func (s *Service) Update(ctx context.Context, id uint64, req UpdateModelRequest)
 		if req.Flavors.Null {
 			nextFlavors = []string{}
 		}
-		flvJSON, err := modelsutil.MarshalFlavors(nextFlavors)
+
+		normalizedFlavors, err := modelsutil.NormalizeFlavors(nextFlavors)
+		if err != nil {
+			if errors.Is(err, modelsutil.ErrEmptyFlavor) {
+				return Model{}, ErrInvalidArgument
+			}
+			return Model{}, err
+		}
+
+		flvJSON, err := modelsutil.MarshalFlavors(normalizedFlavors)
 		if err != nil {
 			return Model{}, err
 		}
