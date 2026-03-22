@@ -7,19 +7,33 @@ import { VapeDeviceIcon } from '../components/icons/vape-device-icon';
 import { ProductStatusBadge } from '../components/product-status-badge';
 import { ModelImage } from '../components/model-image';
 import { useShowcaseItem } from '../hooks/useShowcaseItem';
-
-const quickActions = [
-  { icon: VapeDeviceIcon, label: 'Browse Catalog', path: '/catalog' },
-  { icon: Heart, label: 'My Favorites', path: '/favorites' },
-  { icon: HelpCircle, label: 'Help & FAQ', path: '/faq' },
-  { icon: User, label: 'My Profile', path: '/profile' },
-];
+import { resolveI18nText, useI18n } from '../../shared/i18n';
 
 export function Home() {
+  const { t, tp, localeCode } = useI18n();
   const { favorites } = useFavorites();
   const { showcaseItem } = useShowcaseItem();
   const { products, isLoading, error } = useCatalogModels();
   const featuredProducts = products.slice(0, 3);
+  const quickActions = [
+    { icon: VapeDeviceIcon, label: t('home.quickActionBrowseCatalog'), path: '/catalog' },
+    { icon: Heart, label: t('home.quickActionMyFavorites'), path: '/favorites' },
+    { icon: HelpCircle, label: t('home.quickActionHelpFaq'), path: '/faq' },
+    { icon: User, label: t('home.quickActionMyProfile'), path: '/profile' },
+  ];
+  const showcaseTagLabel =
+    typeof showcaseItem?.tag?.label === 'string' && showcaseItem.tag.label.trim().length > 0
+      ? showcaseItem.tag.label
+      : t('common.featuredTag');
+  const showcaseTitle =
+    typeof showcaseItem?.title === 'string' && showcaseItem.title.trim().length > 0
+      ? showcaseItem.title
+      : t('common.showcaseTitleFallback');
+  const showcaseDescription =
+    typeof showcaseItem?.description === 'string' && showcaseItem.description.trim().length > 0
+      ? showcaseItem.description
+      : t('common.showcaseDescriptionFallback');
+  const localizedError = resolveI18nText(error, t);
 
   return (
     <div className="min-h-screen pb-24">
@@ -37,19 +51,19 @@ export function Home() {
           <div className="relative z-10 flex items-center gap-3">
             <div className="min-w-0 flex-[0_0_50%]">
               <div className="inline-flex items-center gap-2 border border-background/20 bg-background/10 backdrop-blur-md px-4 py-1.5 rounded-full text-[9px] font-bold mb-8 uppercase tracking-[0.3em] text-background">
-                {showcaseItem?.tag.label ?? 'Featured'}
+                {showcaseTagLabel}
               </div>
               <h2 className="text-5xl font-extrabold mb-5 tracking-tighter leading-[0.9]">
-                {showcaseItem?.title ?? 'Waka'}
+                {showcaseTitle}
               </h2>
               <p className="text-background/70 mb-10 text-[13px] leading-relaxed max-w-[270px] font-medium tracking-wide">
-                {showcaseItem?.description ?? 'Explore our latest models and curated flavors.'}
+                {showcaseDescription}
               </p>
               <Link
                 to={showcaseItem?.modelID ? `/product/${showcaseItem.modelID}` : '/catalog'}
                 className="inline-flex items-center justify-center text-foreground bg-background px-8 py-4 rounded-full font-bold text-[11px] tracking-[0.2em] uppercase hover:scale-105 transition-transform duration-500 shadow-xl"
               >
-                Discover
+                {t('actions.discover')}
               </Link>
             </div>
             <div className="relative flex-[0_0_50%] overflow-hidden">
@@ -57,7 +71,7 @@ export function Home() {
                 <ModelImage
                   preset="showcase"
                   src={showcaseItem.photoUrl}
-                  alt={showcaseItem.title}
+                  alt={showcaseTitle}
                   className="mx-auto h-[26rem] w-full"
                 />
               )}
@@ -68,7 +82,7 @@ export function Home() {
 
       <div className="px-6 mb-14">
         <h2 className="text-xl font-bold mb-6 tracking-tighter uppercase text-[11px] tracking-[0.2em] text-muted-foreground">
-          Quick Actions
+          {t('home.quickActionsTitle')}
         </h2>
         <div className="grid grid-cols-2 gap-4">
           {quickActions.map((action) => {
@@ -93,30 +107,33 @@ export function Home() {
       <div className="px-6 mb-10">
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-xl font-bold tracking-tighter uppercase text-[11px] tracking-[0.2em] text-muted-foreground">
-            Featured Models
+            {t('home.featuredModelsTitle')}
           </h2>
           <Link
             to="/catalog"
             className="text-foreground text-[10px] font-bold uppercase tracking-[0.2em] flex items-center gap-1 transition-all hover:opacity-70"
           >
-            See all
+            {t('actions.seeAll')}
             <ChevronRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
-        {isLoading && <p className="text-sm text-muted-foreground">Loading models...</p>}
+        {isLoading && <p className="text-sm text-muted-foreground">{t('home.loadingModels')}</p>}
 
-        {error && (
+        {localizedError && (
           <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-            {error}
+            {localizedError}
           </div>
         )}
 
-        {!isLoading && !error && featuredProducts.length > 0 && (
+        {!isLoading && !localizedError && featuredProducts.length > 0 && (
           <div className="flex gap-5 overflow-x-auto pb-10 -mx-6 px-6 scrollbar-hide snap-x">
             {featuredProducts.map((product) => {
               const flavorCount = Array.isArray(product.flavors) ? product.flavors.length : 0;
-              const description = typeof product.description === 'string' ? product.description.trim() : '';
+              const description =
+                typeof product.description === 'string' && product.description.trim().length > 0
+                  ? product.description.trim()
+                  : t('common.defaultProductDescription');
 
               return (
                 <Link
@@ -142,18 +159,20 @@ export function Home() {
                     <div className="mt-3 flex items-center gap-1.5">
                       <div className="flex flex-col">
                         <span className="mb-1.5 text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                          Capacity
+                          {t('common.capacity')}
                         </span>
                         <span className="text-[13px] font-bold tracking-tight text-foreground">
-                          {product.puffsMax.toLocaleString()} Puffs
+                          {product.puffsMax.toLocaleString(localeCode)} {t('common.puffs')}
                         </span>
                       </div>
                       <div className="h-8 w-[1px] bg-border/50"></div>
                       <div className="flex flex-col">
                         <span className="mb-1.5 text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                          Flavors
+                          {t('common.flavors')}
                         </span>
-                        <span className="text-[13px] font-bold tracking-tight text-foreground">{flavorCount} Options</span>
+                        <span className="text-[13px] font-bold tracking-tight text-foreground">
+                          {flavorCount.toLocaleString(localeCode)} {tp('nouns.option', flavorCount)}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -171,9 +190,9 @@ export function Home() {
             <div className="flex items-center justify-between relative z-10">
               <div>
                 <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground mb-2">
-                  Your Favorites
+                  {t('home.yourFavorites')}
                 </p>
-                <p className="text-4xl font-bold tracking-tighter text-foreground">{favorites.length}</p>
+                <p className="text-4xl font-bold tracking-tighter text-foreground">{favorites.length.toLocaleString(localeCode)}</p>
               </div>
               <div className="w-16 h-16 rounded-full bg-background shadow-sm border border-border/50 flex items-center justify-center">
                 <Heart className="w-7 h-7 text-foreground fill-current drop-shadow-sm" />

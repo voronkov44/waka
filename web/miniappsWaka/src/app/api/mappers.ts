@@ -76,7 +76,7 @@ function mapTag(tag?: ModelTagDTO) {
 
 function toDescription(value?: string): string {
   if (!value || value.trim().length === 0) {
-    return 'Premium Waka model with signature performance.';
+    return '';
   }
   return value;
 }
@@ -104,7 +104,7 @@ export function mapProduct(dto: PublicModelDTO | ModelDTO): Product {
 }
 
 function mapShowcaseTag(tag?: ShowcaseTagDTO) {
-  const label = typeof tag?.label === 'string' && tag.label.trim().length > 0 ? tag.label.trim() : 'Featured';
+  const label = typeof tag?.label === 'string' && tag.label.trim().length > 0 ? tag.label.trim() : '';
 
   return {
     label,
@@ -115,7 +115,7 @@ function mapShowcaseTag(tag?: ShowcaseTagDTO) {
 }
 
 export function mapShowcaseItem(dto: ShowcaseItemDTO): ShowcaseItem {
-  const title = typeof dto.title === 'string' && dto.title.trim().length > 0 ? dto.title.trim() : 'Waka';
+  const title = typeof dto.title === 'string' && dto.title.trim().length > 0 ? dto.title.trim() : '';
 
   return {
     id: dto.id,
@@ -123,7 +123,7 @@ export function mapShowcaseItem(dto: ShowcaseItemDTO): ShowcaseItem {
     description:
       typeof dto.description === 'string' && dto.description.trim().length > 0
         ? dto.description.trim()
-        : 'Explore our latest models and curated flavors.',
+        : '',
     modelID: dto.model_id,
     photoUrl: toPhotoURL(dto.photo_url, dto.id),
     tag: mapShowcaseTag(dto.tag),
@@ -159,7 +159,7 @@ export function mapFAQTopic(topic: FAQTopicDTO, articleCount: number, index: num
   return {
     id: topic.id,
     title: topic.title,
-    description: articleCount > 0 ? `${articleCount} article${articleCount === 1 ? '' : 's'} available` : 'Explore answers and guides',
+    description: '',
     icon: resolveTopicIcon(topic.title, index),
     articleCount,
   };

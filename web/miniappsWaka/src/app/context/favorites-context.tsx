@@ -4,6 +4,7 @@ import { ApiError } from '../api/http';
 import { mapProduct } from '../api/mappers';
 import { useAuthContext } from './auth-context';
 import type { Product } from '../types/domain';
+import { i18nText } from '../../shared/i18n';
 
 interface FavoritesContextValue {
   favorites: number[];
@@ -42,10 +43,10 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         setFavoriteProducts([]);
-        setError('Please reopen the mini app to refresh your session.');
+        setError(i18nText('errors.refreshSession'));
         return;
       }
-      setError(err instanceof Error ? err.message : 'Failed to load favorites');
+      setError(err instanceof Error ? err.message : i18nText('errors.loadFavorites'));
     } finally {
       setIsLoading(false);
     }
@@ -96,7 +97,7 @@ export function FavoritesProvider({ children }: { children: ReactNode }) {
         await refreshFavorites();
       } catch (err) {
         setFavoriteProducts(previousFavorites);
-        setError(err instanceof Error ? err.message : 'Failed to update favorites');
+        setError(err instanceof Error ? err.message : i18nText('errors.updateFavorites'));
       } finally {
         setPendingIDs((prev) => {
           const next = { ...prev };

@@ -7,6 +7,7 @@ import { ProductStatusBadge } from '../components/product-status-badge';
 import { useCatalogModel } from '../hooks/useCatalogModel';
 import { useCatalogModels } from '../hooks/useCatalogModels';
 import { ModelImage } from '../components/model-image';
+import { resolveI18nText, useI18n } from '../../shared/i18n';
 
 function normalizePriceCents(value: unknown): number | null {
   if (typeof value === 'number') {
@@ -31,6 +32,7 @@ function formatPrice(cents: number) {
 }
 
 export function ProductDetail() {
+  const { t, tp, localeCode } = useI18n();
   const { id } = useParams<{ id: string }>();
   const productID = Number(id);
   const [isFlavorsOpen, setIsFlavorsOpen] = useState(false);
@@ -38,6 +40,7 @@ export function ProductDetail() {
   const { isFavorite, toggleFavorite } = useFavorites();
   const { product, isLoading, error, notFound } = useCatalogModel(productID);
   const { products } = useCatalogModels();
+  const localizedError = resolveI18nText(error, t);
 
   const handleGoBack = () => {
     if (window.history.length > 1) {
@@ -63,20 +66,25 @@ export function ProductDetail() {
   const normalizedPriceCents = normalizePriceCents(product?.priceCents);
   const priceLabel = normalizedPriceCents !== null ? formatPrice(normalizedPriceCents) : null;
   const hasPrice = priceLabel !== null;
+  const productDescription =
+    typeof product?.description === 'string' && product.description.trim().length > 0
+      ? product.description
+      : t('common.defaultProductDescription');
+  const flavorCountLabel = tp('nouns.option', flavorCount);
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-muted-foreground">
-        Loading product...
+        {t('product.loading')}
       </div>
     );
   }
 
-  if (error) {
+  if (localizedError) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
         <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-          {error}
+          {localizedError}
         </div>
       </div>
     );
@@ -86,9 +94,9 @@ export function ProductDetail() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-xl mb-4">Product not found</p>
+          <p className="text-xl mb-4">{t('product.notFound')}</p>
           <Link to="/catalog" className="text-foreground underline">
-            Back to catalog
+            {t('actions.backToCatalog')}
           </Link>
         </div>
       </div>
@@ -106,7 +114,7 @@ export function ProductDetail() {
           >
             <ChevronLeft className="w-6 h-6 text-foreground group-hover:text-foreground/80 transition-colors" />
           </button>
-          <div className="text-sm font-bold tracking-[0.2em] uppercase text-foreground">Details</div>
+          <div className="text-sm font-bold tracking-[0.2em] uppercase text-foreground">{t('product.detailsTitle')}</div>
           <button
             type="button"
             onClick={() => {
@@ -141,24 +149,29 @@ export function ProductDetail() {
 
       <div className="px-6 pt-10">
         <h1 className="text-4xl font-extrabold tracking-tighter mb-4 leading-none">{product.name}</h1>
-        <p className="text-[13px] font-medium leading-relaxed text-muted-foreground mb-10">{product.description}</p>
+        <p className="text-[13px] font-medium leading-relaxed text-muted-foreground mb-10">{productDescription}</p>
 
         <div className="bg-card border border-border/50 rounded-[32px] p-8 mb-8 shadow-sm">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-[14px] bg-foreground/10 flex items-center justify-center">
               <Zap className="w-5 h-5 text-foreground" />
             </div>
-            <h3 className="font-bold tracking-tight text-lg">Specifications</h3>
+            <h3 className="font-bold tracking-tight text-lg">{t('product.specifications')}</h3>
           </div>
           <div className="grid grid-cols-2 gap-6">
             <div>
-              <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground mb-2">Max Puffs</p>
-              <p className="font-extrabold text-xl tracking-tight text-foreground">{product.puffsMax.toLocaleString()}</p>
+              <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground mb-2">{t('product.maxPuffs')}</p>
+              <p className="font-extrabold text-xl tracking-tight text-foreground">
+                {product.puffsMax.toLocaleString(localeCode)}
+              </p>
             </div>
             <div>
-              <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground mb-2">Flavors</p>
+              <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground mb-2">{t('common.flavors')}</p>
               <p className="font-extrabold text-xl tracking-tight text-foreground">
-                {flavorCount} <span className="text-sm font-medium text-muted-foreground">opts</span>
+                {t('product.flavorCountWithUnit', {
+                  count: flavorCount.toLocaleString(localeCode),
+                  unit: flavorCountLabel,
+                })}
               </p>
             </div>
           </div>
@@ -174,9 +187,9 @@ export function ProductDetail() {
               className="w-full rounded-[28px] border border-border/50 bg-card px-6 py-4 shadow-sm flex items-center justify-between transition-all duration-300 hover:border-foreground/30"
             >
               <div className="flex items-center gap-3">
-                <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-muted-foreground">Available flavors</span>
+                <span className="text-[11px] font-bold tracking-[0.2em] uppercase text-muted-foreground">{t('product.availableFlavors')}</span>
                 <span className="min-w-8 rounded-full border border-border/60 bg-background px-2 py-0.5 text-[11px] font-bold text-foreground">
-                  {flavorCount}
+                  {flavorCount.toLocaleString(localeCode)}
                 </span>
               </div>
               <ChevronDown
@@ -208,7 +221,7 @@ export function ProductDetail() {
           <div className="bg-card border border-border/50 rounded-[32px] p-8 mb-10 shadow-sm relative overflow-hidden">
             <div className="absolute top-0 right-0 w-32 h-32 bg-foreground/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none" />
             <div className="relative z-10">
-              <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground mb-2">Price</p>
+              <p className="text-[10px] font-bold tracking-[0.2em] uppercase text-muted-foreground mb-2">{t('product.price')}</p>
               <p className="text-4xl font-extrabold tracking-tighter text-foreground">{priceLabel}</p>
             </div>
           </div>
@@ -217,12 +230,15 @@ export function ProductDetail() {
         {relatedProducts.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-6 pl-2">
-              <h3 className="text-[11px] font-bold tracking-[0.2em] uppercase text-muted-foreground">Related Models</h3>
+              <h3 className="text-[11px] font-bold tracking-[0.2em] uppercase text-muted-foreground">{t('product.relatedModels')}</h3>
             </div>
             <div className="flex gap-4 overflow-x-auto pb-6 -mx-6 px-6 scrollbar-hide snap-x">
               {relatedProducts.map((related) => {
                 const flavorCount = Array.isArray(related.flavors) ? related.flavors.length : 0;
-                const description = typeof related.description === 'string' ? related.description.trim() : '';
+                const description =
+                  typeof related.description === 'string' && related.description.trim().length > 0
+                    ? related.description.trim()
+                    : t('common.defaultProductDescription');
 
                 return (
                   <Link
@@ -246,18 +262,20 @@ export function ProductDetail() {
                       <div className="mt-2 flex items-center gap-1.5">
                         <div className="flex flex-col">
                           <span className="mb-1 text-[8px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                            Capacity
+                            {t('common.capacity')}
                           </span>
                           <span className="text-[11px] font-bold tracking-tight text-foreground">
-                            {related.puffsMax.toLocaleString()} Puffs
+                            {related.puffsMax.toLocaleString(localeCode)} {t('common.puffs')}
                           </span>
                         </div>
                         <div className="h-8 w-[1px] bg-border/50"></div>
                         <div className="flex flex-col">
                           <span className="mb-1 text-[8px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
-                            Flavors
+                            {t('common.flavors')}
                           </span>
-                          <span className="text-[11px] font-bold tracking-tight text-foreground">{flavorCount} Options</span>
+                          <span className="text-[11px] font-bold tracking-tight text-foreground">
+                            {flavorCount.toLocaleString(localeCode)} {tp('nouns.option', flavorCount)}
+                          </span>
                         </div>
                       </div>
                     </div>

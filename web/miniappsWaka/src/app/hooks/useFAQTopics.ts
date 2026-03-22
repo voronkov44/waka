@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
 import { mapFAQTopic } from '../api/mappers';
 import type { FAQTopic } from '../types/domain';
+import { i18nText } from '../../shared/i18n';
 
 export function useFAQTopics() {
   const [topics, setTopics] = useState<FAQTopic[]>([]);
@@ -32,7 +33,7 @@ export function useFAQTopics() {
 
       setTopics(mappedTopics);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load FAQ topics');
+      setError(err instanceof Error ? err.message : i18nText('errors.loadFaqTopics'));
     } finally {
       setIsLoading(false);
     }

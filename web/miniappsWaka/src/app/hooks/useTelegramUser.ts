@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useAuth } from './useAuth';
+import { i18nText } from '../../shared/i18n';
 
 function withImageVersion(url: string, version: string): string {
   if (!url || !version) {
@@ -52,10 +53,10 @@ export function useTelegramUser() {
 
     if (!sourceUser) {
       return {
-        displayName: 'Guest',
+        displayName: i18nText('common.guest'),
         handle: hasTelegramContext
-          ? 'Telegram profile is unavailable for this session'
-          : 'Open from Telegram to sync profile',
+          ? i18nText('common.telegramProfileUnavailable')
+          : i18nText('common.openFromTelegramToSyncProfile'),
         photoUrl: null,
         source: 'fallback',
       };

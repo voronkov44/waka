@@ -3,6 +3,7 @@ import { ApiError } from '../api/http';
 import { apiClient } from '../api/client';
 import { mapProduct } from '../api/mappers';
 import type { Product } from '../types/domain';
+import { i18nText } from '../../shared/i18n';
 
 export function useCatalogModel(modelID?: number) {
   const [product, setProduct] = useState<Product | null>(null);
@@ -29,7 +30,7 @@ export function useCatalogModel(modelID?: number) {
         setNotFound(true);
         setProduct(null);
       } else {
-        setError(err instanceof Error ? err.message : 'Failed to load model');
+        setError(err instanceof Error ? err.message : i18nText('errors.loadModel'));
       }
     } finally {
       setIsLoading(false);

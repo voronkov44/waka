@@ -5,6 +5,7 @@ import { clearAuthToken, readAuthToken, writeAuthToken } from '../api/auth-stora
 import { bootstrapTelegramContext, type TelegramBootstrapDiagnostics } from '../telegram/bootstrap';
 import type { MeResponseDTO, TelegramAuthRequestDTO } from '../api/types';
 import type { TelegramUser } from '../types/telegram';
+import { i18nText } from '../../shared/i18n';
 
 export interface AuthDebugState extends TelegramBootstrapDiagnostics {
   usedStoredToken: boolean;
@@ -119,7 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setTelegramUser(null);
           setDebug(diagnostics);
           publishDebug(diagnostics);
-          setError(err instanceof Error ? err.message : 'Telegram bootstrap failed');
+          setError(err instanceof Error ? err.message : i18nText('errors.telegramBootstrapFailed'));
           setIsLoading(false);
         }
         return;
@@ -176,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setToken(null);
           setUser(null);
           diagnostics.fallbackReason = 'stored_token_me_request_failed';
-          pendingError = err instanceof Error ? err.message : 'Stored token validation failed';
+          pendingError = err instanceof Error ? err.message : i18nText('errors.storedTokenValidationFailed');
         }
       }
 
@@ -221,7 +222,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setToken(null);
             setUser(null);
             diagnostics.fallbackReason = 'telegram_auth_succeeded_but_me_missing';
-            pendingError = pendingError ?? 'Telegram login succeeded but user profile could not be loaded';
+            pendingError = pendingError ?? i18nText('errors.telegramLoginSucceededProfileMissing');
           }
         } catch (err) {
           if (hadStoredSession && existingToken) {
@@ -235,7 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setToken(null);
             setUser(null);
             diagnostics.fallbackReason = 'telegram_auth_request_failed';
-            pendingError = err instanceof Error ? err.message : 'Telegram authentication failed';
+            pendingError = err instanceof Error ? err.message : i18nText('errors.telegramAuthenticationFailed');
           }
         }
       }

@@ -1,7 +1,9 @@
 import { useNavigate } from 'react-router';
 import { Home } from 'lucide-react';
+import { useI18n } from '../../shared/i18n';
 
 export function NotFound() {
+  const { t } = useI18n();
   const navigate = useNavigate();
 
   return (
@@ -10,9 +12,9 @@ export function NotFound() {
         <div className="w-24 h-24 rounded-full bg-foreground flex items-center justify-center mx-auto mb-6">
           <span className="text-5xl font-bold text-background">404</span>
         </div>
-        <h1 className="text-3xl font-bold mb-3">Page not found</h1>
+        <h1 className="text-3xl font-bold mb-3">{t('notFound.title')}</h1>
         <p className="text-muted-foreground mb-8 max-w-sm mx-auto">
-          The page you're looking for doesn't exist or has been moved.
+          {t('notFound.description')}
         </p>
         <button
           type="button"
@@ -20,7 +22,7 @@ export function NotFound() {
           className="inline-flex items-center gap-2 px-6 py-3 bg-foreground text-background rounded-full font-semibold hover:opacity-90 transition-all"
         >
           <Home className="w-5 h-5" />
-          Go to Home
+          {t('actions.goToHome')}
         </button>
       </div>
     </div>

@@ -1,14 +1,16 @@
 import { useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router';
 import { ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
-import { format } from 'date-fns';
 import { useFAQArticles } from '../hooks/useFAQArticles';
+import { resolveI18nText, useI18n } from '../../shared/i18n';
 
 export function FAQArticles() {
+  const { t, tp, localeCode } = useI18n();
   const { topicId } = useParams<{ topicId: string }>();
   const parsedTopicID = Number(topicId);
   const navigate = useNavigate();
   const { topic, articles, isLoading, error, notFound } = useFAQArticles(parsedTopicID);
+  const localizedError = resolveI18nText(error, t);
 
   const handleGoBack = () => {
     if (window.history.length > 1) {
@@ -25,20 +27,30 @@ export function FAQArticles() {
       }),
     [articles],
   );
+  const articleCountLabel = tp('nouns.article', sortedArticles.length);
+  const articleDateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(localeCode, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+    [localeCode],
+  );
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-muted-foreground">
-        Loading articles...
+        {t('faqArticles.loading')}
       </div>
     );
   }
 
-  if (error) {
+  if (localizedError) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
         <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-          {error}
+          {localizedError}
         </div>
       </div>
     );
@@ -48,9 +60,9 @@ export function FAQArticles() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-xl mb-4">Topic not found</p>
+          <p className="text-xl mb-4">{t('faqArticles.topicNotFound')}</p>
           <Link to="/faq" className="text-foreground underline">
-            Back to FAQ
+            {t('actions.backToFaq')}
           </Link>
         </div>
       </div>
@@ -70,7 +82,12 @@ export function FAQArticles() {
           </button>
           <div className="flex-1">
             <h1 className="text-xl font-bold">{topic.title}</h1>
-            <p className="text-sm text-muted-foreground">{sortedArticles.length} articles</p>
+            <p className="text-sm text-muted-foreground">
+              {t('faqArticles.headerCount', {
+                count: sortedArticles.length.toLocaleString(localeCode),
+                unit: articleCountLabel,
+              })}
+            </p>
           </div>
         </div>
       </div>
@@ -89,7 +106,9 @@ export function FAQArticles() {
                     <h3 className="font-semibold mb-2">{article.title}</h3>
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
                       <Calendar className="w-3 h-3" />
-                      Updated {format(new Date(article.updatedAt), 'MMM d, yyyy')}
+                      {t('common.updatedAt', {
+                        date: articleDateFormatter.format(new Date(article.updatedAt)),
+                      })}
                     </div>
                   </div>
                   <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
@@ -99,7 +118,7 @@ export function FAQArticles() {
           </div>
         ) : (
           <div className="text-center py-16">
-            <p className="text-muted-foreground">No articles available</p>
+            <p className="text-muted-foreground">{t('faqArticles.noArticlesAvailable')}</p>
           </div>
         )}
       </div>

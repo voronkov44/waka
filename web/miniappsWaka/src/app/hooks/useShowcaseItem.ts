@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { apiClient } from '../api/client';
 import { mapShowcaseItem } from '../api/mappers';
 import type { ShowcaseItem } from '../types/domain';
+import { i18nText } from '../../shared/i18n';
 
 export function useShowcaseItem() {
   const [showcaseItem, setShowcaseItem] = useState<ShowcaseItem | null>(null);
@@ -17,7 +18,7 @@ export function useShowcaseItem() {
       const firstItem = response.items[0];
       setShowcaseItem(firstItem ? mapShowcaseItem(firstItem) : null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load showcase');
+      setError(err instanceof Error ? err.message : i18nText('errors.loadShowcase'));
       setShowcaseItem(null);
     } finally {
       setIsLoading(false);
@@ -35,4 +36,3 @@ export function useShowcaseItem() {
     refresh,
   };
 }
-

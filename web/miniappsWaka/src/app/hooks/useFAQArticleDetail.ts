@@ -3,6 +3,7 @@ import { ApiError } from '../api/http';
 import { apiClient } from '../api/client';
 import { mapFAQArticleDetail } from '../api/mappers';
 import type { FAQArticleDetail } from '../types/domain';
+import { i18nText } from '../../shared/i18n';
 
 export function useFAQArticleDetail(articleID?: number, topicID?: number) {
   const [article, setArticle] = useState<FAQArticleDetail | null>(null);
@@ -36,7 +37,7 @@ export function useFAQArticleDetail(articleID?: number, topicID?: number) {
       if (err instanceof ApiError && err.status === 404) {
         setNotFound(true);
       } else {
-        setError(err instanceof Error ? err.message : 'Failed to load article');
+        setError(err instanceof Error ? err.message : i18nText('errors.loadFaqArticle'));
       }
     } finally {
       setIsLoading(false);

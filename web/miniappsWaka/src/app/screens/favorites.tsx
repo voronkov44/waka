@@ -4,16 +4,19 @@ import { useFavorites } from '../hooks/useFavorites';
 import { ProductCard } from '../components/product-card';
 import { EmptyState } from '../components/empty-state';
 import { useAuth } from '../hooks/useAuth';
+import { resolveI18nText, useI18n } from '../../shared/i18n';
 
 export function Favorites() {
+  const { t, tp, localeCode } = useI18n();
   const navigate = useNavigate();
   const { isLoading: authLoading, isAuthenticated, hasTelegramContext } = useAuth();
   const { favoriteProducts, toggleFavorite, isFavorite, isLoading, error } = useFavorites();
+  const localizedError = resolveI18nText(error, t);
 
   if (authLoading || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-muted-foreground">
-        Loading favorites...
+        {t('favorites.loading')}
       </div>
     );
   }
@@ -23,14 +26,14 @@ export function Favorites() {
       <div className="min-h-screen px-6 pt-16">
         <EmptyState
           icon={Heart}
-          title="Favorites require Telegram login"
+          title={t('favorites.requiresTelegramTitle')}
           description={
             hasTelegramContext
-              ? 'Please wait while your Telegram profile is being linked.'
-              : 'Open this mini app from Telegram to sync your favorites.'
+              ? t('favorites.requiresTelegramDescriptionLinking')
+              : t('favorites.requiresTelegramDescriptionOpenFromTelegram')
           }
           action={{
-            label: 'Go Home',
+            label: t('actions.goHome'),
             onClick: () => navigate('/'),
           }}
         />
@@ -44,20 +47,23 @@ export function Favorites() {
         <div className="px-6 py-6 pb-4">
           <div className="flex items-center gap-3 mb-1">
             <Heart className="w-6 h-6 text-foreground fill-current drop-shadow-sm" />
-            <h1 className="text-4xl font-extrabold tracking-tighter leading-none">Favorites</h1>
+            <h1 className="text-4xl font-extrabold tracking-tighter leading-none">{t('favorites.title')}</h1>
           </div>
           {favoriteProducts.length > 0 && (
             <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-muted-foreground mt-3">
-              {favoriteProducts.length} {favoriteProducts.length === 1 ? 'device' : 'devices'} saved
+              {t('favorites.savedCount', {
+                count: favoriteProducts.length.toLocaleString(localeCode),
+                unit: tp('nouns.device', favoriteProducts.length),
+              })}
             </p>
           )}
         </div>
       </div>
 
-      {error && (
+      {localizedError && (
         <div className="px-6 pt-6">
           <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-            {error}
+            {localizedError}
           </div>
         </div>
       )}
@@ -83,10 +89,10 @@ export function Favorites() {
         <div className="px-6 pt-16">
           <EmptyState
             icon={Heart}
-            title="No favorites yet"
-            description="Start exploring our catalog and save your premium devices here"
+            title={t('favorites.emptyTitle')}
+            description={t('favorites.emptyDescription')}
             action={{
-              label: 'Browse Catalog',
+              label: t('actions.browseCatalog'),
               onClick: () => navigate('/catalog'),
             }}
           />

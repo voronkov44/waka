@@ -3,6 +3,7 @@ import { apiClient } from '../api/client';
 import { mapFAQArticleSummary } from '../api/mappers';
 import { ApiError } from '../api/http';
 import type { FAQArticleSummary, FAQTopic } from '../types/domain';
+import { i18nText } from '../../shared/i18n';
 
 interface UseFAQArticlesResult {
   topic: FAQTopic | null;
@@ -50,7 +51,7 @@ export function useFAQArticles(topicID?: number): UseFAQArticlesResult {
       setTopic({
         id: currentTopic.id,
         title: currentTopic.title,
-        description: `Explore ${articlesResponse.length} article${articlesResponse.length === 1 ? '' : 's'}`,
+        description: '',
         icon: 'Info',
         articleCount: articlesResponse.length,
       });
@@ -59,7 +60,7 @@ export function useFAQArticles(topicID?: number): UseFAQArticlesResult {
       if (err instanceof ApiError && err.status === 404) {
         setNotFound(true);
       } else {
-        setError(err instanceof Error ? err.message : 'Failed to load FAQ articles');
+        setError(err instanceof Error ? err.message : i18nText('errors.loadFaqArticles'));
       }
     } finally {
       setIsLoading(false);

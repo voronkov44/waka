@@ -5,6 +5,7 @@ import { SearchBar } from '../components/search-bar';
 import { apiClient } from '../api/client';
 import { useFAQTopics } from '../hooks/useFAQTopics';
 import type { FAQTopicIcon } from '../types/domain';
+import { resolveI18nText, useI18n } from '../../shared/i18n';
 
 const iconMap: Record<FAQTopicIcon, typeof Rocket> = {
   Rocket,
@@ -16,9 +17,11 @@ const iconMap: Record<FAQTopicIcon, typeof Rocket> = {
 };
 
 export function FAQTopics() {
+  const { t, tp, localeCode } = useI18n();
   const [searchQuery, setSearchQuery] = useState('');
   const [apiMatchedTopicIDs, setApiMatchedTopicIDs] = useState<Set<number> | null>(null);
   const { topics, isLoading, error } = useFAQTopics();
+  const localizedError = resolveI18nText(error, t);
 
   useEffect(() => {
     const query = searchQuery.trim();
@@ -71,27 +74,34 @@ export function FAQTopics() {
   return (
     <div className="min-h-screen pb-32">
       <div className="px-6 pt-14 pb-8">
-        <h1 className="text-4xl font-extrabold tracking-tighter leading-none mb-3">Help Center</h1>
-        <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-muted-foreground">Find answers & get support</p>
+        <h1 className="text-4xl font-extrabold tracking-tighter leading-none mb-3">{t('faqTopics.title')}</h1>
+        <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-muted-foreground">{t('faqTopics.subtitle')}</p>
       </div>
 
       <div className="px-6 mb-8">
-        <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder="Search help topics..." />
+        <SearchBar value={searchQuery} onChange={setSearchQuery} placeholder={t('search.faqPlaceholder')} />
       </div>
 
       <div className="px-6">
-        {isLoading && <p className="text-sm text-muted-foreground py-8 text-center">Loading FAQ topics...</p>}
+        {isLoading && <p className="text-sm text-muted-foreground py-8 text-center">{t('faqTopics.loading')}</p>}
 
-        {error && (
+        {localizedError && (
           <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-            {error}
+            {localizedError}
           </div>
         )}
 
-        {!isLoading && !error && (
+        {!isLoading && !localizedError && (
           <div className="space-y-4">
             {filteredTopics.map((topic) => {
               const Icon = iconMap[topic.icon];
+              const topicDescription =
+                topic.articleCount > 0
+                  ? t('faqTopics.topicDescriptionAvailable', {
+                      count: topic.articleCount.toLocaleString(localeCode),
+                      unit: tp('nouns.article', topic.articleCount),
+                    })
+                  : t('faqTopics.topicDescriptionFallback');
               return (
                 <Link
                   key={topic.id}
@@ -108,9 +118,9 @@ export function FAQTopics() {
                         <h3 className="font-bold text-lg tracking-tight text-foreground">{topic.title}</h3>
                         <ChevronRight className="w-5 h-5 text-muted-foreground/50 group-hover:text-foreground transition-colors" />
                       </div>
-                      <p className="text-sm font-medium text-muted-foreground mb-3 leading-relaxed">{topic.description}</p>
+                      <p className="text-sm font-medium text-muted-foreground mb-3 leading-relaxed">{topicDescription}</p>
                       <p className="text-[9px] font-bold tracking-[0.2em] uppercase text-foreground/70">
-                        {topic.articleCount} articles
+                        {topic.articleCount.toLocaleString(localeCode)} {tp('nouns.article', topic.articleCount)}
                       </p>
                     </div>
                   </div>
@@ -120,24 +130,24 @@ export function FAQTopics() {
           </div>
         )}
 
-        {!isLoading && !error && filteredTopics.length === 0 && (
+        {!isLoading && !localizedError && filteredTopics.length === 0 && (
           <div className="text-center py-16">
-            <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-muted-foreground">No topics found</p>
+            <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-muted-foreground">{t('faqTopics.noTopicsFound')}</p>
           </div>
         )}
       </div>
 
       <div className="px-6 mt-10">
         <div className="bg-card border border-border/50 rounded-[32px] p-8 text-center shadow-sm">
-          <h3 className="text-xl font-bold tracking-tight mb-2 text-foreground">Still need help?</h3>
+          <h3 className="text-xl font-bold tracking-tight mb-2 text-foreground">{t('faqTopics.stillNeedHelpTitle')}</h3>
           <p className="text-[11px] font-bold tracking-[0.1em] uppercase text-muted-foreground mb-8">
-            Our premium support team is here to assist you
+            {t('faqTopics.stillNeedHelpDescription')}
           </p>
           <Link
             to="/profile"
             className="inline-flex items-center gap-3 px-8 py-4 bg-foreground text-background rounded-full text-[11px] font-bold tracking-[0.2em] uppercase hover:scale-105 hover:bg-foreground/90 transition-all duration-500 shadow-md hover:shadow-lg"
           >
-            Contact Support
+            {t('actions.contactSupport')}
             <ChevronRight className="w-4 h-4" />
           </Link>
         </div>

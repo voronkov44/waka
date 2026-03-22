@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import type { Product } from '../types/domain';
 import { ProductStatusBadge } from './product-status-badge';
 import { ModelImage } from './model-image';
+import { useI18n } from '../../shared/i18n';
 
 interface ProductCardProps {
   product: Product;
@@ -12,14 +13,14 @@ interface ProductCardProps {
   className?: string;
 }
 
-function formatPrice(cents: number | null): string | null {
+function formatPrice(cents: number | null, localeCode: string): string | null {
   if (cents === null || Number.isNaN(cents)) {
     return null;
   }
 
   const rubles = cents / 100;
   const hasFraction = Math.abs(rubles % 1) > 0;
-  const formatted = new Intl.NumberFormat('ru-RU', {
+  const formatted = new Intl.NumberFormat(localeCode, {
     minimumFractionDigits: hasFraction ? 2 : 0,
     maximumFractionDigits: hasFraction ? 2 : 0,
   }).format(rubles);
@@ -34,7 +35,13 @@ export function ProductCard({
   compact = false,
   className = '',
 }: ProductCardProps) {
-  const price = formatPrice(product.priceCents);
+  const { localeCode, t, tp } = useI18n();
+  const price = formatPrice(product.priceCents, localeCode);
+  const description =
+    typeof product.description === 'string' && product.description.trim().length > 0
+      ? product.description
+      : t('common.defaultProductDescription');
+  const optionLabel = tp('nouns.option', product.flavors.length);
   const rootRadiusClass = compact ? 'rounded-[20px]' : 'rounded-[22px]';
   const mediaAspectClass = compact ? 'aspect-[4/5]' : 'aspect-[11/12]';
   const mediaPaddingClass = compact ? 'p-2' : 'p-2.5';
@@ -94,17 +101,21 @@ export function ProductCard({
             <h3 className={`${titleSizeClass} font-bold tracking-tight leading-tight text-foreground break-words`}>{product.name}</h3>
             {price && <span className={`shrink-0 ${priceSizeClass} font-semibold tracking-tight text-foreground`}>{price}</span>}
           </div>
-          <p className={descriptionClass}>{product.description}</p>
+          <p className={descriptionClass}>{description}</p>
 
           <div className={`flex items-center ${statsGapClass}`}>
             <div className="flex flex-col">
-              <span className={statLabelClass}>Capacity</span>
-              <span className={statValueClass}>{product.puffsMax.toLocaleString()} Puffs</span>
+              <span className={statLabelClass}>{t('common.capacity')}</span>
+              <span className={statValueClass}>
+                {product.puffsMax.toLocaleString(localeCode)} {t('common.puffs')}
+              </span>
             </div>
             <div className="h-8 w-[1px] bg-border/50"></div>
             <div className="flex flex-col">
-              <span className={statLabelClass}>Flavors</span>
-              <span className={statValueClass}>{product.flavors.length} Options</span>
+              <span className={statLabelClass}>{t('common.flavors')}</span>
+              <span className={statValueClass}>
+                {product.flavors.length.toLocaleString(localeCode)} {optionLabel}
+              </span>
             </div>
           </div>
         </Link>

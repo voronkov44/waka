@@ -1,15 +1,27 @@
 import { useParams, useNavigate } from 'react-router';
 import { ChevronLeft, Calendar } from 'lucide-react';
-import { format } from 'date-fns';
+import { useMemo } from 'react';
 import { ContentBlockComponent } from '../components/content-block';
 import { useFAQArticleDetail } from '../hooks/useFAQArticleDetail';
+import { resolveI18nText, useI18n } from '../../shared/i18n';
 
 export function FAQArticleDetail() {
+  const { t, localeCode } = useI18n();
   const { topicId, articleId } = useParams<{ topicId: string; articleId: string }>();
   const parsedTopicID = Number(topicId);
   const parsedArticleID = Number(articleId);
   const navigate = useNavigate();
   const { article, isLoading, error, notFound } = useFAQArticleDetail(parsedArticleID, parsedTopicID);
+  const localizedError = resolveI18nText(error, t);
+  const articleDateFormatter = useMemo(
+    () =>
+      new Intl.DateTimeFormat(localeCode, {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+    [localeCode],
+  );
 
   const handleGoBack = () => {
     if (window.history.length > 1) {
@@ -22,16 +34,16 @@ export function FAQArticleDetail() {
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-muted-foreground">
-        Loading article...
+        {t('faqArticleDetail.loading')}
       </div>
     );
   }
 
-  if (error) {
+  if (localizedError) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
         <div className="rounded-2xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-          {error}
+          {localizedError}
         </div>
       </div>
     );
@@ -41,9 +53,9 @@ export function FAQArticleDetail() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-xl mb-4">Article not found</p>
+          <p className="text-xl mb-4">{t('faqArticleDetail.articleNotFound')}</p>
           <button type="button" onClick={handleGoBack} className="text-foreground underline">
-            Go back
+            {t('actions.goBack')}
           </button>
         </div>
       </div>
@@ -62,7 +74,7 @@ export function FAQArticleDetail() {
             <ChevronLeft className="w-5 h-5" />
           </button>
           <div className="flex-1 min-w-0">
-            <p className="text-sm text-muted-foreground truncate">Help Article</p>
+            <p className="text-sm text-muted-foreground truncate">{t('common.helpArticle')}</p>
           </div>
         </div>
       </div>
@@ -72,7 +84,9 @@ export function FAQArticleDetail() {
           <h1 className="text-2xl font-bold mb-3">{article.title}</h1>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Calendar className="w-4 h-4" />
-            Last updated {format(new Date(article.updatedAt), 'MMMM d, yyyy')}
+            {t('common.lastUpdatedAt', {
+              date: articleDateFormatter.format(new Date(article.updatedAt)),
+            })}
           </div>
         </div>
 
@@ -84,20 +98,20 @@ export function FAQArticleDetail() {
 
         <div className="mt-12 pt-8 border-t border-border">
           <div className="bg-card/60 backdrop-blur-sm border border-border rounded-2xl p-6 text-center">
-            <h3 className="font-semibold mb-2">Was this article helpful?</h3>
-            <p className="text-sm text-muted-foreground mb-4">Let us know if you found the information you needed</p>
+            <h3 className="font-semibold mb-2">{t('faqArticleDetail.helpfulTitle')}</h3>
+            <p className="text-sm text-muted-foreground mb-4">{t('faqArticleDetail.helpfulDescription')}</p>
             <div className="flex gap-3 justify-center">
               <button
                 type="button"
                 className="px-6 py-2.5 bg-foreground text-background rounded-full font-semibold hover:opacity-90 transition-all"
               >
-                Yes, helpful
+                {t('actions.yesHelpful')}
               </button>
               <button
                 type="button"
                 className="px-6 py-2.5 bg-secondary text-foreground rounded-full font-semibold hover:bg-accent transition-all"
               >
-                No, not helpful
+                {t('actions.noHelpful')}
               </button>
             </div>
           </div>
